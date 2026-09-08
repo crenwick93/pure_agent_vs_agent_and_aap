@@ -80,9 +80,9 @@ controller_inventory_sources:
 controller_templates:
 
   # ---------------------------------------------------------------------------
-  # 1. provision-dev-sandbox  (THE REAL ONE — has a playbook)
+  # 1. Provision Dev Sandbox  (THE REAL ONE — has a playbook)
   # ---------------------------------------------------------------------------
-  - name: "provision-dev-sandbox"
+  - name: "Provision Dev Sandbox"
     description: >-
       Creates a new RHEL EC2 instance for development or testing, installs the
       requested packages, applies the standard SSH hardening baseline, restricts
@@ -90,10 +90,10 @@ controller_templates:
       and sets an automatic teardown date via tags.
 
       Choose this when someone needs a brand-new sandbox that does not exist
-      yet. Do not use it to change an existing sandbox: use resize-sandbox to
-      alter its instance type, extend-sandbox-ttl to postpone teardown, or
-      rebuild-app-config to change installed software. It does not provision
-      databases with production data — use refresh-db-from-prod for that after
+      yet. Do not use it to change an existing sandbox: use Resize Sandbox to
+      alter its instance type, Extend Sandbox TTL to postpone teardown, or
+      Rebuild App Config to change installed software. It does not provision
+      databases with production data — use Refresh DB From Prod for that after
       the sandbox exists.
 
       Requires: team name, memory size, desired packages, TTL in days. RHEL
@@ -101,7 +101,7 @@ controller_templates:
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
-    playbook: "playbooks/provision-dev-sandbox.yml"
+    playbook: "playbooks/Provision Dev Sandbox.yml"
     inventory: "Developer Sandboxes"
     ask_variables_on_launch: true
     credentials:
@@ -139,9 +139,9 @@ controller_templates:
           required: true
 
   # ---------------------------------------------------------------------------
-  # 2. extend-sandbox-ttl
+  # 2. Extend Sandbox TTL
   # ---------------------------------------------------------------------------
-  - name: "extend-sandbox-ttl"
+  - name: "Extend Sandbox TTL"
     description: >-
       Extends the automatic teardown date of an existing sandbox by updating
       its ttl_days tag and rescheduling the cleanup job. The sandbox keeps its
@@ -149,8 +149,8 @@ controller_templates:
 
       Choose this when a developer needs their sandbox to live longer than
       originally requested. Do not use it to create a sandbox (use
-      provision-dev-sandbox) or to change what is installed on one (use
-      rebuild-app-config). Maximum extension is 30 days.
+      Provision Dev Sandbox) or to change what is installed on one (use
+      Rebuild App Config). Maximum extension is 30 days.
 
       Requires: the instance ID of the sandbox and the new TTL in days.
     organization: "Default"
@@ -178,9 +178,9 @@ controller_templates:
           required: true
 
   # ---------------------------------------------------------------------------
-  # 3. teardown-sandbox
+  # 3. Teardown Sandbox
   # ---------------------------------------------------------------------------
-  - name: "teardown-sandbox"
+  - name: "Teardown Sandbox"
     description: >-
       Terminates an existing sandbox instance, removes its security group,
       and deletes its CMDB entry. The instance is stopped and terminated — this
@@ -188,7 +188,7 @@ controller_templates:
 
       Choose this when a sandbox is no longer needed and should be removed
       immediately rather than waiting for its TTL to expire. Do not use it to
-      temporarily stop a sandbox (there is no stop-sandbox template — just
+      temporarily stop a sandbox (there is no Stop Sandbox template — just
       extend the TTL and leave it). Do not use it to remove all sandboxes at
       once — it acts on a single instance.
 
@@ -213,9 +213,9 @@ controller_templates:
           required: true
 
   # ---------------------------------------------------------------------------
-  # 4. refresh-db-from-prod
+  # 4. Refresh DB From Prod
   # ---------------------------------------------------------------------------
-  - name: "refresh-db-from-prod"
+  - name: "Refresh DB From Prod"
     description: >-
       Restores a sanitised copy of a production database into a sandbox's
       PostgreSQL instance. The dump is pulled from the nightly backup bucket,
@@ -224,7 +224,7 @@ controller_templates:
 
       Choose this when a developer needs realistic data to test against.
       The sandbox must already exist and have PostgreSQL running — use
-      provision-dev-sandbox first if it does not. Do not use this to create a
+      Provision Dev Sandbox first if it does not. Do not use this to create a
       sandbox or to install PostgreSQL; it assumes both are already present.
       Do not use it against a production host.
 
@@ -259,9 +259,9 @@ controller_templates:
           required: true
 
   # ---------------------------------------------------------------------------
-  # 5. rotate-dev-credentials
+  # 5. Rotate Dev Credentials
   # ---------------------------------------------------------------------------
-  - name: "rotate-dev-credentials"
+  - name: "Rotate Dev Credentials"
     description: >-
       Rotates database passwords and application API keys on a sandbox instance.
       Generates new random credentials, updates the PostgreSQL roles, writes
@@ -298,9 +298,9 @@ controller_templates:
           required: false
 
   # ---------------------------------------------------------------------------
-  # 6. seed-test-data
+  # 6. Seed Test Data
   # ---------------------------------------------------------------------------
-  - name: "seed-test-data"
+  - name: "Seed Test Data"
     description: >-
       Loads a named fixture dataset into a sandbox's database. Fixture sets are
       predefined collections of test data for specific use cases (e.g.
@@ -309,7 +309,7 @@ controller_templates:
 
       Choose this when a developer needs repeatable, deterministic test data
       rather than a production copy. Do not use it for production-like data —
-      use refresh-db-from-prod instead. The sandbox must have PostgreSQL
+      use Refresh DB From Prod instead. The sandbox must have PostgreSQL
       running.
 
       Requires: instance ID, fixture set name. Optional: append mode.
@@ -343,9 +343,9 @@ controller_templates:
           required: false
 
   # ---------------------------------------------------------------------------
-  # 7. snapshot-sandbox
+  # 7. Snapshot Sandbox
   # ---------------------------------------------------------------------------
-  - name: "snapshot-sandbox"
+  - name: "Snapshot Sandbox"
     description: >-
       Creates an AMI snapshot of a sandbox instance so it can be restored later
       to this exact state. Tags the AMI with the sandbox name, team, and
@@ -355,7 +355,7 @@ controller_templates:
       Choose this when a developer wants to save the current state before a
       risky change (e.g. before a large migration or config experiment). Do
       not use it as a backup strategy for production. To restore a snapshot,
-      use restore-sandbox.
+      use Restore Sandbox.
 
       Requires: instance ID. Optional: snapshot description, retention count.
     organization: "Default"
@@ -387,9 +387,9 @@ controller_templates:
           required: false
 
   # ---------------------------------------------------------------------------
-  # 8. restore-sandbox
+  # 8. Restore Sandbox
   # ---------------------------------------------------------------------------
-  - name: "restore-sandbox"
+  - name: "Restore Sandbox"
     description: >-
       Replaces an existing sandbox with a new instance launched from a
       previously saved AMI snapshot. The old instance is terminated, a new one
@@ -398,8 +398,8 @@ controller_templates:
 
       Choose this when a developer wants to roll back to a saved state after a
       failed experiment. Do not use it to create a new sandbox from scratch —
-      use provision-dev-sandbox. Do not use it if no snapshot exists — use
-      snapshot-sandbox first.
+      use Provision Dev Sandbox. Do not use it if no snapshot exists — use
+      Snapshot Sandbox first.
 
       Requires: instance ID of the sandbox to replace, AMI ID to restore from.
     organization: "Default"
@@ -426,9 +426,9 @@ controller_templates:
           required: true
 
   # ---------------------------------------------------------------------------
-  # 9. resize-sandbox
+  # 9. Resize Sandbox
   # ---------------------------------------------------------------------------
-  - name: "resize-sandbox"
+  - name: "Resize Sandbox"
     description: >-
       Changes the instance type of an existing sandbox. The instance is stopped,
       the instance type is changed, and it is restarted. All data on the root
@@ -436,8 +436,8 @@ controller_templates:
 
       Choose this when a developer needs more (or less) CPU or memory on an
       existing sandbox. Do not use it to create a sandbox — use
-      provision-dev-sandbox. Do not use it to change installed software — use
-      rebuild-app-config. The instance will experience a brief restart.
+      Provision Dev Sandbox. Do not use it to change installed software — use
+      Rebuild App Config. The instance will experience a brief restart.
 
       Requires: instance ID, new instance type.
     organization: "Default"
@@ -465,9 +465,9 @@ controller_templates:
           required: true
 
   # ---------------------------------------------------------------------------
-  # 10. attach-shared-volume
+  # 10. Attach Shared Volume
   # ---------------------------------------------------------------------------
-  - name: "attach-shared-volume"
+  - name: "Attach Shared Volume"
     description: >-
       Creates and attaches an EBS volume to a sandbox, or attaches an existing
       shared volume. The volume is formatted (if new) and mounted at the
@@ -515,9 +515,9 @@ controller_templates:
           required: false
 
   # ---------------------------------------------------------------------------
-  # 11. grant-temp-db-access
+  # 11. Grant Temp DB Access
   # ---------------------------------------------------------------------------
-  - name: "grant-temp-db-access"
+  - name: "Grant Temp DB Access"
     description: >-
       Creates a temporary PostgreSQL user on a sandbox with a scoped grant
       (read-only or read-write on a named database) and a time-limited
@@ -563,9 +563,9 @@ controller_templates:
           required: true
 
   # ---------------------------------------------------------------------------
-  # 12. rebuild-app-config
+  # 12. Rebuild App Config
   # ---------------------------------------------------------------------------
-  - name: "rebuild-app-config"
+  - name: "Rebuild App Config"
     description: >-
       Reinstalls and reconfigures the application stack on an existing sandbox
       without reprovisioning the instance. Reinstalls the requested packages,
@@ -574,8 +574,8 @@ controller_templates:
 
       Choose this when a developer needs to change what software is installed
       on a sandbox or reset application config to defaults. Do not use it to
-      create a sandbox — use provision-dev-sandbox. Do not use it to change
-      the instance type — use resize-sandbox. Data in databases is preserved
+      create a sandbox — use Provision Dev Sandbox. Do not use it to change
+      the instance type — use Resize Sandbox. Data in databases is preserved
       unless you explicitly include a database reset package.
 
       Requires: instance ID, packages to install.
@@ -608,9 +608,9 @@ controller_templates:
           required: false
 
   # ---------------------------------------------------------------------------
-  # 13. run-integration-suite
+  # 13. Run Integration Suite
   # ---------------------------------------------------------------------------
-  - name: "run-integration-suite"
+  - name: "Run Integration Suite"
     description: >-
       Runs a named integration test suite against a sandbox instance. Clones
       the test repository, installs dependencies, executes the tests, and
@@ -651,9 +651,9 @@ controller_templates:
           required: false
 
   # ---------------------------------------------------------------------------
-  # 14. sync-secrets
+  # 14. Sync Secrets
   # ---------------------------------------------------------------------------
-  - name: "sync-secrets"
+  - name: "Sync Secrets"
     description: >-
       Pulls the latest development secrets from the team's secrets vault and
       writes them to the standard config locations on a sandbox instance.
@@ -662,7 +662,7 @@ controller_templates:
 
       Choose this when a developer's sandbox has stale or missing secrets, or
       after a credential rotation in the vault. Do not use it to rotate the
-      secrets themselves — use rotate-dev-credentials for that. Do not use it
+      secrets themselves — use Rotate Dev Credentials for that. Do not use it
       on production instances.
 
       Requires: instance ID, team name.
@@ -689,9 +689,9 @@ controller_templates:
           required: true
 
   # ---------------------------------------------------------------------------
-  # 15. open-firewall-port
+  # 15. Open Firewall Port
   # ---------------------------------------------------------------------------
-  - name: "open-firewall-port"
+  - name: "Open Firewall Port"
     description: >-
       Adds an inbound rule to a sandbox's security group allowing traffic on a
       specified port from a specified CIDR. Useful for exposing additional
@@ -737,9 +737,9 @@ controller_templates:
           required: true
 
   # ---------------------------------------------------------------------------
-  # 16. tail-app-logs
+  # 16. Tail App Logs
   # ---------------------------------------------------------------------------
-  - name: "tail-app-logs"
+  - name: "Tail App Logs"
     description: >-
       Retrieves the last N lines of a named log file or journald unit from a
       sandbox instance. Returns the log content in the job output. Useful for
@@ -781,17 +781,17 @@ controller_templates:
           required: false
 
   # ---------------------------------------------------------------------------
-  # 17. restart-app-services
+  # 17. Restart App Services
   # ---------------------------------------------------------------------------
-  - name: "restart-app-services"
+  - name: "Restart App Services"
     description: >-
       Restarts one or more systemd services on a sandbox instance. Waits for
       each service to reach active state and reports the result. Useful after
       config changes or when a service is in a bad state.
 
       Choose this when a developer needs to restart services without SSH. Do
-      not use it to install or configure services — use rebuild-app-config for
-      that. Do not use it to restart the instance itself — use resize-sandbox
+      not use it to install or configure services — use Rebuild App Config for
+      that. Do not use it to restart the instance itself — use Resize Sandbox
       with the same instance type if a full reboot is needed.
 
       Requires: instance ID, service names.
@@ -819,9 +819,9 @@ controller_templates:
           required: true
 
   # ---------------------------------------------------------------------------
-  # 18. check-sandbox-health
+  # 18. Check Sandbox Health
   # ---------------------------------------------------------------------------
-  - name: "check-sandbox-health"
+  - name: "Check Sandbox Health"
     description: >-
       Runs a health check against a sandbox instance: verifies SSH
       connectivity, checks disk space, memory usage, CPU load, and reports the
@@ -830,7 +830,7 @@ controller_templates:
 
       Choose this when a developer wants a quick status check on their sandbox
       without logging in. Do not use it to fix problems — it only reports them.
-      If services are down, use restart-app-services. If the instance is
+      If services are down, use Restart App Services. If the instance is
       unreachable, check the AWS console.
 
       Requires: instance ID.
@@ -853,9 +853,9 @@ controller_templates:
           required: true
 
   # ---------------------------------------------------------------------------
-  # 19. list-team-sandboxes
+  # 19. List Team Sandboxes
   # ---------------------------------------------------------------------------
-  - name: "list-team-sandboxes"
+  - name: "List Team Sandboxes"
     description: >-
       Lists all active sandboxes belonging to a team, showing instance ID,
       instance type, launch date, TTL remaining, installed packages, and
@@ -863,7 +863,7 @@ controller_templates:
 
       Choose this when a developer or lead wants to see what sandboxes their
       team has. Do not use it to find a specific sandbox by ID — use
-      check-sandbox-health instead. It only lists sandboxes tagged with the
+      Check Sandbox Health instead. It only lists sandboxes tagged with the
       specified team name.
 
       Requires: team name.
@@ -886,9 +886,9 @@ controller_templates:
           required: true
 
   # ---------------------------------------------------------------------------
-  # 20. report-sandbox-spend
+  # 20. Report Sandbox Spend
   # ---------------------------------------------------------------------------
-  - name: "report-sandbox-spend"
+  - name: "Report Sandbox Spend"
     description: >-
       Generates a cost report for a team's sandbox usage over a specified
       period. Queries AWS Cost Explorer for EC2 costs tagged to the team and
