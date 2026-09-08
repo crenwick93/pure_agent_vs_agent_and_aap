@@ -1,0 +1,31 @@
+---
+- name: Apply AAP objects — Developer Self-Service catalog
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  collections:
+    - infra.aap_configuration
+
+  vars:
+    aap_hostname: "{{ lookup('env', 'AAP_HOSTNAME') | default(omit, true) }}"
+    aap_token: "{{ lookup('env', 'AAP_TOKEN') | default(omit, true) }}"
+    aap_validate_certs: "{{ (lookup('env', 'AAP_VALIDATE_CERTS') | default('false', true)) | bool }}"
+
+    controller_host: "{{ aap_hostname }}"
+    controller_oauthtoken: "{{ aap_token }}"
+    controller_validate_certs: "{{ aap_validate_certs }}"
+
+    aap_configuration_secure_logging: false
+
+    aws_access_key: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') | default(omit, true) }}"
+    aws_secret_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') | default(omit, true) }}"
+    ssh_key_name: "{{ lookup('env', 'SSH_KEY_NAME') | default('aap-token-bench', true) }}"
+    probe_ssh_key: "{{ lookup('file', probe_ssh_key_path, errors='ignore') | default(omit, true) }}"
+    probe_ssh_key_path: "{{ lookup('env', 'SSH_KEY_PATH') | default('~/.ssh/aap-token-bench.pem', true) }}"
+    git_repo_url: "{{ lookup('env', 'GIT_REPO_URL') | default('https://github.com/crenwick93/pure_agent_vs_agent_and_aap.git', true) }}"
+
+  vars_files:
+    - vars.yml
+
+  roles:
+    - role: infra.aap_configuration.dispatch

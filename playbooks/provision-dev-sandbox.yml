@@ -1,0 +1,244 @@
+---
+# provision-dev-sandbox.yml
+#
+# The playbook behind the "provision-dev-sandbox" job template. This is the
+# one template in the catalog that actually does real work — the other 19
+# exist so the agent has a genuine selection problem.
+#
+# What it does:
+#   1. Finds the latest RHEL AMI
+#   2. Creates a security group (SSH + Postgres from the dev CIDR only)
+#   3. Launches an EC2 instance with the right size and tags
+#   4. Waits for SSH, then configures: packages, PostgreSQL, SSH hardening
+#   5. Registers the instance in a CMDB stub (see note below)
+#   6. Tags the instance with ttl_days for lifecycle tracking
+#
+# STUBS / SIMPLIFICATIONS:
+#   - CMDB registration writes a local JSON file (/tmp/cmdb.json) instead of
+#     calling a real CMDB API (e.g. ServiceNow). In production you would
+#     replace this with servicenow.itsm.configuration_item or your own API
+#     call. The stub exists because "registered in the CMDB" is one of the six
+#     success conditions both arms are tested against.
+#   - Teardown is tag-based. The instance gets a ttl_days tag. In production,
+#     a scheduled AAP workflow (the "teardown-sandbox" template in the catalog)
+#     would sweep instances past their TTL. For this demo, run
+#     ./scripts/cleanup.sh after each test to terminate everything.
+#   - SSH configuration is done via shell commands over SSH rather than
+#     Ansible modules running on the target. This keeps the playbook
+#     self-contained (no need for the target to be in an Ansible inventory
+#     before it exists).
+#
+# Survey variables:
+#   rhel_version  (int, default 9)
+#   memory_gb     (choice: 4, 8, 16, 32)
+#   packages      (text, comma-separated, e.g. "postgresql16,nginx")
+#   team          (text)
+#   ttl_days      (int, default 7)
+
+- name: Provision developer sandbox
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    aws_region: "{{ lookup('env', 'AWS_REGION') | default('eu-west-1', true) }}"
+    dev_cidr: "{{ lookup('env', 'DEV_CIDR') | default('10.0.0.0/8', true) }}"
+    cmdb_path: "{{ lookup('env', 'CMDB_PATH') | default('/tmp/cmdb.json', true) }}"
+    ssh_key_name: "{{ lookup('env', 'SSH_KEY_NAME') | default('aap-token-bench', true) }}"
+    rhel_version: "{{ rhel_version | default(9) }}"
+    memory_gb: "{{ memory_gb | default(8) }}"
+    packages: "{{ packages | default('') }}"
+    team: "{{ team | default('unknown') }}"
+    ttl_days: "{{ ttl_days | default(7) }}"
+
+    instance_type_map:
+      "4": "t3.medium"
+      "8": "t3.large"
+      "16": "t3.xlarge"
+      "32": "t3.2xlarge"
+
+    instance_type: "{{ instance_type_map[memory_gb | string] | default('t3.large') }}"
+
+  tasks:
+    # -----------------------------------------------------------------
+    # Look up the latest RHEL AMI
+    # -----------------------------------------------------------------
+    - name: Get latest RHEL {{ rhel_version }} AMI
+      amazon.aws.ec2_ami_info:
+        region: "{{ aws_region }}"
+        filters:
+          name: "RHEL-{{ rhel_version }}*-x86_64-*"
+          architecture: "x86_64"
+          owner-alias: "amazon"
+        owners:
+          - "amazon"
+      register: ami_result
+
+    - name: Pick newest AMI
+      ansible.builtin.set_fact:
+        ami_id: "{{ (ami_result.images | sort(attribute='creation_date') | last).image_id }}"
+
+    # -----------------------------------------------------------------
+    # Security group — SSH + Postgres from dev CIDR only
+    # -----------------------------------------------------------------
+    - name: Create security group
+      amazon.aws.ec2_security_group:
+        name: "sandbox-{{ team }}-{{ lookup('pipe', 'date +%s') }}"
+        description: "Developer sandbox for {{ team }}"
+        region: "{{ aws_region }}"
+        rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: "{{ dev_cidr }}"
+          - proto: tcp
+            from_port: 5432
+            to_port: 5432
+            cidr_ip: "{{ dev_cidr }}"
+        tags:
+          benchmark: aap-token-bench
+          team: "{{ team }}"
+      register: sg_result
+
+    # -----------------------------------------------------------------
+    # Launch the instance
+    # -----------------------------------------------------------------
+    - name: Launch EC2 instance
+      amazon.aws.ec2_instance:
+        region: "{{ aws_region }}"
+        image_id: "{{ ami_id }}"
+        instance_type: "{{ instance_type }}"
+        key_name: "{{ ssh_key_name }}"
+        security_group: "{{ sg_result.group_id }}"
+        tags:
+          Name: "sandbox-{{ team }}"
+          benchmark: aap-token-bench
+          team: "{{ team }}"
+          ttl_days: "{{ ttl_days | string }}"
+          managed_by: aap
+        wait: true
+        state: running
+      register: ec2_result
+
+    - name: Record instance details
+      ansible.builtin.set_fact:
+        instance_id: "{{ ec2_result.instances[0].instance_id }}"
+        instance_ip: "{{ ec2_result.instances[0].public_ip_address }}"
+
+    - name: Wait for SSH
+      ansible.builtin.wait_for:
+        host: "{{ instance_ip }}"
+        port: 22
+        timeout: 300
+
+    - name: Wait for cloud-init to finish
+      ansible.builtin.command:
+        cmd: >
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10
+          ec2-user@{{ instance_ip }}
+          "cloud-init status --wait"
+      register: cloud_init_result
+      retries: 10
+      delay: 15
+      until: cloud_init_result.rc == 0
+      changed_when: false
+
+# -----------------------------------------------------------------
+# Configure the instance
+# -----------------------------------------------------------------
+- name: Configure sandbox
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    ssh_args: "-o StrictHostKeyChecking=no -o ConnectTimeout=10"
+
+  tasks:
+    - name: Install packages
+      ansible.builtin.command:
+        cmd: >
+          ssh {{ ssh_args }} ec2-user@{{ instance_ip }}
+          "sudo dnf install -y {{ packages | replace(',', ' ') }}"
+      when: packages | length > 0
+      register: install_result
+      changed_when: "'Complete!' in install_result.stdout"
+
+    - name: Initialise PostgreSQL (if installed)
+      ansible.builtin.command:
+        cmd: >
+          ssh {{ ssh_args }} ec2-user@{{ instance_ip }}
+          "sudo postgresql-setup --initdb"
+      when: "'postgresql' in packages"
+      register: pg_init
+      failed_when: pg_init.rc != 0 and 'already initialized' not in pg_init.stderr
+      changed_when: pg_init.rc == 0
+
+    - name: Enable and start PostgreSQL
+      ansible.builtin.command:
+        cmd: >
+          ssh {{ ssh_args }} ec2-user@{{ instance_ip }}
+          "sudo systemctl enable --now postgresql"
+      when: "'postgresql' in packages"
+      changed_when: true
+
+    # -----------------------------------------------------------------
+    # SSH hardening
+    # -----------------------------------------------------------------
+    - name: Disable password authentication
+      ansible.builtin.command:
+        cmd: >
+          ssh {{ ssh_args }} ec2-user@{{ instance_ip }}
+          "sudo sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config"
+      changed_when: true
+
+    - name: Disable root login
+      ansible.builtin.command:
+        cmd: >
+          ssh {{ ssh_args }} ec2-user@{{ instance_ip }}
+          "sudo sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config"
+      changed_when: true
+
+    - name: Restart sshd
+      ansible.builtin.command:
+        cmd: >
+          ssh {{ ssh_args }} ec2-user@{{ instance_ip }}
+          "sudo systemctl restart sshd"
+      changed_when: true
+
+    # -----------------------------------------------------------------
+    # CMDB registration (STUB)
+    #
+    # This writes a local JSON file to simulate CMDB registration.
+    # In production, replace this with a real CMDB call, e.g.:
+    #
+    #   servicenow.itsm.configuration_item:
+    #     name: "sandbox-{{ team }}"
+    #     sys_class_name: cmdb_ci_ec2_instance
+    #     other:
+    #       ip_address: "{{ instance_ip }}"
+    #       install_status: installed
+    #
+    # The stub exists because "registered in the CMDB" is one of the six
+    # success conditions that verify.sh checks for both arms.
+    # -----------------------------------------------------------------
+    - name: Register in CMDB (stub — writes local JSON, see comments above)
+      ansible.builtin.copy:
+        dest: "{{ cmdb_path }}"
+        content: |
+          {
+            "instance_id": "{{ instance_id }}",
+            "ip": "{{ instance_ip }}",
+            "team": "{{ team }}",
+            "ttl_days": {{ ttl_days }},
+            "created": "{{ ansible_date_time.iso8601 | default(lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ')) }}",
+            "managed_by": "aap"
+          }
+
+    - name: Print summary
+      ansible.builtin.debug:
+        msg: >-
+          Sandbox ready: {{ instance_id }} ({{ instance_ip }})
+          — {{ instance_type }}, RHEL {{ rhel_version }},
+          team={{ team }}, ttl_days={{ ttl_days }}.
+          Run ./scripts/cleanup.sh to tear down when done.

@@ -1,0 +1,925 @@
+---
+# =============================================================================
+# AAP Configuration as Code — Developer Self-Service catalog
+# =============================================================================
+#
+# 20 job templates scoped to a Developer Self-Service organization.
+# That number is a scoped developer catalog, not a claim about a typical
+# estate. Say so in the article.
+#
+# Template descriptions are a machine interface. They tell a model what the
+# template does, when to choose it, what it will not do, and what it needs.
+# "Builds a sandbox" tells a model nothing about when to pick this over the
+# four adjacent templates.
+
+# -----------------------------------------------------------------------------
+# Credentials
+# -----------------------------------------------------------------------------
+controller_credential_types: []
+
+controller_credentials:
+  - name: "Benchmark SSH Key"
+    description: "SSH access to benchmark EC2 instances (ec2-user)"
+    organization: "Default"
+    credential_type: "Machine"
+    inputs:
+      username: ec2-user
+      ssh_key_data: "{{ probe_ssh_key }}"
+
+  - name: "AWS Benchmark"
+    description: "AWS credentials for EC2 provisioning and inventory"
+    organization: "Default"
+    credential_type: "Amazon Web Services"
+    inputs:
+      username: "{{ aws_access_key }}"
+      password: "{{ aws_secret_key }}"
+
+# -----------------------------------------------------------------------------
+# Project
+# -----------------------------------------------------------------------------
+controller_projects:
+  - name: "Developer Self-Service Playbooks"
+    description: "Playbooks backing the developer self-service catalog"
+    organization: "Default"
+    scm_type: "git"
+    scm_url: "{{ git_repo_url }}"
+    scm_branch: "main"
+    scm_update_on_launch: true
+
+# -----------------------------------------------------------------------------
+# Inventory
+# -----------------------------------------------------------------------------
+controller_inventories:
+  - name: "Developer Sandboxes"
+    description: "EC2 instances tagged benchmark=aap-token-bench"
+    organization: "Default"
+
+controller_inventory_sources:
+  - name: "AWS EC2 Discovery"
+    inventory: "Developer Sandboxes"
+    source: "ec2"
+    credential: "AWS Benchmark"
+    overwrite: true
+    update_on_launch: true
+    source_vars:
+      plugin: amazon.aws.aws_ec2
+      regions:
+        - "{{ lookup('env', 'AWS_REGION') | default('eu-west-1', true) }}"
+      filters:
+        "tag:benchmark": "aap-token-bench"
+      hostnames:
+        - tag:Name
+      compose:
+        ansible_host: public_ip_address
+        ansible_user: "'ec2-user'"
+        ansible_become: "true"
+
+# -----------------------------------------------------------------------------
+# Job Templates — 20 total
+# -----------------------------------------------------------------------------
+controller_templates:
+
+  # ---------------------------------------------------------------------------
+  # 1. provision-dev-sandbox  (THE REAL ONE — has a playbook)
+  # ---------------------------------------------------------------------------
+  - name: "provision-dev-sandbox"
+    description: >-
+      Creates a new RHEL EC2 instance for development or testing, installs the
+      requested packages, applies the standard SSH hardening baseline, restricts
+      inbound access to the requesting team's CIDR, registers it in the CMDB
+      and sets an automatic teardown date via tags.
+
+      Choose this when someone needs a brand-new sandbox that does not exist
+      yet. Do not use it to change an existing sandbox: use resize-sandbox to
+      alter its instance type, extend-sandbox-ttl to postpone teardown, or
+      rebuild-app-config to change installed software. It does not provision
+      databases with production data — use refresh-db-from-prod for that after
+      the sandbox exists.
+
+      Requires: team name, memory size, desired packages, TTL in days. RHEL
+      version defaults to 9.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/provision-dev-sandbox.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "Benchmark SSH Key"
+      - "AWS Benchmark"
+    survey_enabled: true
+    survey_spec:
+      name: "Provision sandbox survey"
+      description: "Variables for new sandbox provisioning"
+      spec:
+        - question_name: "RHEL version"
+          variable: "rhel_version"
+          type: "integer"
+          default: "9"
+          required: true
+        - question_name: "Memory (GB)"
+          variable: "memory_gb"
+          type: "multiplechoice"
+          choices: "4\n8\n16\n32"
+          default: "8"
+          required: true
+        - question_name: "Packages"
+          variable: "packages"
+          type: "text"
+          default: ""
+          required: false
+        - question_name: "Team"
+          variable: "team"
+          type: "text"
+          required: true
+        - question_name: "TTL (days)"
+          variable: "ttl_days"
+          type: "integer"
+          default: "7"
+          required: true
+
+  # ---------------------------------------------------------------------------
+  # 2. extend-sandbox-ttl
+  # ---------------------------------------------------------------------------
+  - name: "extend-sandbox-ttl"
+    description: >-
+      Extends the automatic teardown date of an existing sandbox by updating
+      its ttl_days tag and rescheduling the cleanup job. The sandbox keeps its
+      current configuration — nothing is reinstalled or restarted.
+
+      Choose this when a developer needs their sandbox to live longer than
+      originally requested. Do not use it to create a sandbox (use
+      provision-dev-sandbox) or to change what is installed on one (use
+      rebuild-app-config). Maximum extension is 30 days.
+
+      Requires: the instance ID of the sandbox and the new TTL in days.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "Benchmark SSH Key"
+      - "AWS Benchmark"
+    survey_enabled: true
+    survey_spec:
+      name: "Extend TTL survey"
+      description: ""
+      spec:
+        - question_name: "Instance ID"
+          variable: "instance_id"
+          type: "text"
+          required: true
+        - question_name: "New TTL (days)"
+          variable: "ttl_days"
+          type: "integer"
+          default: "7"
+          required: true
+
+  # ---------------------------------------------------------------------------
+  # 3. teardown-sandbox
+  # ---------------------------------------------------------------------------
+  - name: "teardown-sandbox"
+    description: >-
+      Terminates an existing sandbox instance, removes its security group,
+      and deletes its CMDB entry. The instance is stopped and terminated — this
+      cannot be undone.
+
+      Choose this when a sandbox is no longer needed and should be removed
+      immediately rather than waiting for its TTL to expire. Do not use it to
+      temporarily stop a sandbox (there is no stop-sandbox template — just
+      extend the TTL and leave it). Do not use it to remove all sandboxes at
+      once — it acts on a single instance.
+
+      Requires: the instance ID.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "Benchmark SSH Key"
+      - "AWS Benchmark"
+    survey_enabled: true
+    survey_spec:
+      name: "Teardown survey"
+      description: ""
+      spec:
+        - question_name: "Instance ID"
+          variable: "instance_id"
+          type: "text"
+          required: true
+
+  # ---------------------------------------------------------------------------
+  # 4. refresh-db-from-prod
+  # ---------------------------------------------------------------------------
+  - name: "refresh-db-from-prod"
+    description: >-
+      Restores a sanitised copy of a production database into a sandbox's
+      PostgreSQL instance. The dump is pulled from the nightly backup bucket,
+      loaded into the target database, and then PII columns are masked using
+      the standard anonymisation rules.
+
+      Choose this when a developer needs realistic data to test against.
+      The sandbox must already exist and have PostgreSQL running — use
+      provision-dev-sandbox first if it does not. Do not use this to create a
+      sandbox or to install PostgreSQL; it assumes both are already present.
+      Do not use it against a production host.
+
+      Requires: instance ID, source database name, target database name.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "Benchmark SSH Key"
+      - "AWS Benchmark"
+    survey_enabled: true
+    survey_spec:
+      name: "DB refresh survey"
+      description: ""
+      spec:
+        - question_name: "Instance ID"
+          variable: "instance_id"
+          type: "text"
+          required: true
+        - question_name: "Source database"
+          variable: "source_db"
+          type: "text"
+          default: "payments_prod"
+          required: true
+        - question_name: "Target database"
+          variable: "target_db"
+          type: "text"
+          default: "payments_dev"
+          required: true
+
+  # ---------------------------------------------------------------------------
+  # 5. rotate-dev-credentials
+  # ---------------------------------------------------------------------------
+  - name: "rotate-dev-credentials"
+    description: >-
+      Rotates database passwords and application API keys on a sandbox instance.
+      Generates new random credentials, updates the PostgreSQL roles, writes
+      the new values to the application config files, and restarts affected
+      services.
+
+      Choose this when credentials on a sandbox may have been exposed or when
+      policy requires periodic rotation. Do not use it to rotate production
+      credentials. Do not use it to change SSH keys — SSH key management is
+      handled by the Machine credential in the controller.
+
+      Requires: instance ID. Optionally specify which services to restart.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "Benchmark SSH Key"
+    survey_enabled: true
+    survey_spec:
+      name: "Credential rotation survey"
+      description: ""
+      spec:
+        - question_name: "Instance ID"
+          variable: "instance_id"
+          type: "text"
+          required: true
+        - question_name: "Services to restart"
+          variable: "restart_services"
+          type: "text"
+          default: "all"
+          required: false
+
+  # ---------------------------------------------------------------------------
+  # 6. seed-test-data
+  # ---------------------------------------------------------------------------
+  - name: "seed-test-data"
+    description: >-
+      Loads a named fixture dataset into a sandbox's database. Fixture sets are
+      predefined collections of test data for specific use cases (e.g.
+      payments-happy-path, edge-cases-refunds). The database is truncated
+      before loading unless append mode is requested.
+
+      Choose this when a developer needs repeatable, deterministic test data
+      rather than a production copy. Do not use it for production-like data —
+      use refresh-db-from-prod instead. The sandbox must have PostgreSQL
+      running.
+
+      Requires: instance ID, fixture set name. Optional: append mode.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "Benchmark SSH Key"
+    survey_enabled: true
+    survey_spec:
+      name: "Seed data survey"
+      description: ""
+      spec:
+        - question_name: "Instance ID"
+          variable: "instance_id"
+          type: "text"
+          required: true
+        - question_name: "Fixture set"
+          variable: "fixture_set"
+          type: "multiplechoice"
+          choices: "payments-happy-path\nedge-cases-refunds\nload-test-10k\nminimal"
+          required: true
+        - question_name: "Append mode"
+          variable: "append_mode"
+          type: "multiplechoice"
+          choices: "false\ntrue"
+          default: "false"
+          required: false
+
+  # ---------------------------------------------------------------------------
+  # 7. snapshot-sandbox
+  # ---------------------------------------------------------------------------
+  - name: "snapshot-sandbox"
+    description: >-
+      Creates an AMI snapshot of a sandbox instance so it can be restored later
+      to this exact state. Tags the AMI with the sandbox name, team, and
+      creation timestamp. Old snapshots beyond the retention limit are
+      automatically deregistered.
+
+      Choose this when a developer wants to save the current state before a
+      risky change (e.g. before a large migration or config experiment). Do
+      not use it as a backup strategy for production. To restore a snapshot,
+      use restore-sandbox.
+
+      Requires: instance ID. Optional: snapshot description, retention count.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "AWS Benchmark"
+    survey_enabled: true
+    survey_spec:
+      name: "Snapshot survey"
+      description: ""
+      spec:
+        - question_name: "Instance ID"
+          variable: "instance_id"
+          type: "text"
+          required: true
+        - question_name: "Description"
+          variable: "snapshot_description"
+          type: "text"
+          default: ""
+          required: false
+        - question_name: "Retention count"
+          variable: "retention_count"
+          type: "integer"
+          default: "3"
+          required: false
+
+  # ---------------------------------------------------------------------------
+  # 8. restore-sandbox
+  # ---------------------------------------------------------------------------
+  - name: "restore-sandbox"
+    description: >-
+      Replaces an existing sandbox with a new instance launched from a
+      previously saved AMI snapshot. The old instance is terminated, a new one
+      is launched from the AMI, and the CMDB entry is updated to point at the
+      new instance. Security group rules and tags are preserved.
+
+      Choose this when a developer wants to roll back to a saved state after a
+      failed experiment. Do not use it to create a new sandbox from scratch —
+      use provision-dev-sandbox. Do not use it if no snapshot exists — use
+      snapshot-sandbox first.
+
+      Requires: instance ID of the sandbox to replace, AMI ID to restore from.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "Benchmark SSH Key"
+      - "AWS Benchmark"
+    survey_enabled: true
+    survey_spec:
+      name: "Restore survey"
+      description: ""
+      spec:
+        - question_name: "Instance ID to replace"
+          variable: "instance_id"
+          type: "text"
+          required: true
+        - question_name: "AMI ID"
+          variable: "ami_id"
+          type: "text"
+          required: true
+
+  # ---------------------------------------------------------------------------
+  # 9. resize-sandbox
+  # ---------------------------------------------------------------------------
+  - name: "resize-sandbox"
+    description: >-
+      Changes the instance type of an existing sandbox. The instance is stopped,
+      the instance type is changed, and it is restarted. All data on the root
+      volume is preserved. The CMDB entry is updated with the new instance type.
+
+      Choose this when a developer needs more (or less) CPU or memory on an
+      existing sandbox. Do not use it to create a sandbox — use
+      provision-dev-sandbox. Do not use it to change installed software — use
+      rebuild-app-config. The instance will experience a brief restart.
+
+      Requires: instance ID, new instance type.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "AWS Benchmark"
+    survey_enabled: true
+    survey_spec:
+      name: "Resize survey"
+      description: ""
+      spec:
+        - question_name: "Instance ID"
+          variable: "instance_id"
+          type: "text"
+          required: true
+        - question_name: "New instance type"
+          variable: "instance_type"
+          type: "multiplechoice"
+          choices: "t3.small\nt3.medium\nt3.large\nt3.xlarge\nt3.2xlarge"
+          default: "t3.large"
+          required: true
+
+  # ---------------------------------------------------------------------------
+  # 10. attach-shared-volume
+  # ---------------------------------------------------------------------------
+  - name: "attach-shared-volume"
+    description: >-
+      Creates and attaches an EBS volume to a sandbox, or attaches an existing
+      shared volume. The volume is formatted (if new) and mounted at the
+      requested path. Useful for sharing data between sandboxes or for
+      workloads that need more storage than the root volume provides.
+
+      Choose this when a sandbox needs additional storage or access to a shared
+      data volume. Do not use it to increase the root volume — resize the
+      instance instead. Do not use it to attach volumes across availability
+      zones.
+
+      Requires: instance ID, mount path. Optional: existing volume ID, size.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "Benchmark SSH Key"
+      - "AWS Benchmark"
+    survey_enabled: true
+    survey_spec:
+      name: "Attach volume survey"
+      description: ""
+      spec:
+        - question_name: "Instance ID"
+          variable: "instance_id"
+          type: "text"
+          required: true
+        - question_name: "Mount path"
+          variable: "mount_path"
+          type: "text"
+          default: "/mnt/shared"
+          required: true
+        - question_name: "Existing Volume ID (leave empty to create new)"
+          variable: "volume_id"
+          type: "text"
+          default: ""
+          required: false
+        - question_name: "Volume size GB (new volumes only)"
+          variable: "volume_size_gb"
+          type: "integer"
+          default: "50"
+          required: false
+
+  # ---------------------------------------------------------------------------
+  # 11. grant-temp-db-access
+  # ---------------------------------------------------------------------------
+  - name: "grant-temp-db-access"
+    description: >-
+      Creates a temporary PostgreSQL user on a sandbox with a scoped grant
+      (read-only or read-write on a named database) and a time-limited
+      password. The user is automatically dropped after the specified TTL by
+      a scheduled pg_cron job.
+
+      Choose this when another developer or a CI pipeline needs temporary
+      access to a sandbox database without using the owner credentials. Do not
+      use it to grant permanent access. Do not use it on production databases.
+
+      Requires: instance ID, database name, access level, TTL in hours.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "Benchmark SSH Key"
+    survey_enabled: true
+    survey_spec:
+      name: "Temp DB access survey"
+      description: ""
+      spec:
+        - question_name: "Instance ID"
+          variable: "instance_id"
+          type: "text"
+          required: true
+        - question_name: "Database name"
+          variable: "database_name"
+          type: "text"
+          required: true
+        - question_name: "Access level"
+          variable: "access_level"
+          type: "multiplechoice"
+          choices: "readonly\nreadwrite"
+          default: "readonly"
+          required: true
+        - question_name: "TTL (hours)"
+          variable: "ttl_hours"
+          type: "integer"
+          default: "8"
+          required: true
+
+  # ---------------------------------------------------------------------------
+  # 12. rebuild-app-config
+  # ---------------------------------------------------------------------------
+  - name: "rebuild-app-config"
+    description: >-
+      Reinstalls and reconfigures the application stack on an existing sandbox
+      without reprovisioning the instance. Reinstalls the requested packages,
+      regenerates config files from templates, and restarts services. The
+      instance itself, its IP, and its security group are unchanged.
+
+      Choose this when a developer needs to change what software is installed
+      on a sandbox or reset application config to defaults. Do not use it to
+      create a sandbox — use provision-dev-sandbox. Do not use it to change
+      the instance type — use resize-sandbox. Data in databases is preserved
+      unless you explicitly include a database reset package.
+
+      Requires: instance ID, packages to install.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "Benchmark SSH Key"
+    survey_enabled: true
+    survey_spec:
+      name: "Rebuild config survey"
+      description: ""
+      spec:
+        - question_name: "Instance ID"
+          variable: "instance_id"
+          type: "text"
+          required: true
+        - question_name: "Packages"
+          variable: "packages"
+          type: "text"
+          required: true
+        - question_name: "Reset config to defaults"
+          variable: "reset_config"
+          type: "multiplechoice"
+          choices: "true\nfalse"
+          default: "true"
+          required: false
+
+  # ---------------------------------------------------------------------------
+  # 13. run-integration-suite
+  # ---------------------------------------------------------------------------
+  - name: "run-integration-suite"
+    description: >-
+      Runs a named integration test suite against a sandbox instance. Clones
+      the test repository, installs dependencies, executes the tests, and
+      returns the results summary. Test output is captured in the job log.
+
+      Choose this when a developer wants to validate that their sandbox is
+      correctly configured by running the standard integration tests. Do not
+      use it to deploy code — it only runs tests. The sandbox must be
+      provisioned and the relevant application stack installed.
+
+      Requires: instance ID, test suite name. Optional: test filter pattern.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "Benchmark SSH Key"
+    survey_enabled: true
+    survey_spec:
+      name: "Integration test survey"
+      description: ""
+      spec:
+        - question_name: "Instance ID"
+          variable: "instance_id"
+          type: "text"
+          required: true
+        - question_name: "Test suite"
+          variable: "test_suite"
+          type: "multiplechoice"
+          choices: "payments-api\nauth-service\nfull-stack\nsmoke"
+          required: true
+        - question_name: "Test filter (optional)"
+          variable: "test_filter"
+          type: "text"
+          default: ""
+          required: false
+
+  # ---------------------------------------------------------------------------
+  # 14. sync-secrets
+  # ---------------------------------------------------------------------------
+  - name: "sync-secrets"
+    description: >-
+      Pulls the latest development secrets from the team's secrets vault and
+      writes them to the standard config locations on a sandbox instance.
+      Secrets include database connection strings, API keys for third-party
+      dev/sandbox environments, and TLS certificates for local services.
+
+      Choose this when a developer's sandbox has stale or missing secrets, or
+      after a credential rotation in the vault. Do not use it to rotate the
+      secrets themselves — use rotate-dev-credentials for that. Do not use it
+      on production instances.
+
+      Requires: instance ID, team name.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "Benchmark SSH Key"
+    survey_enabled: true
+    survey_spec:
+      name: "Sync secrets survey"
+      description: ""
+      spec:
+        - question_name: "Instance ID"
+          variable: "instance_id"
+          type: "text"
+          required: true
+        - question_name: "Team"
+          variable: "team"
+          type: "text"
+          required: true
+
+  # ---------------------------------------------------------------------------
+  # 15. open-firewall-port
+  # ---------------------------------------------------------------------------
+  - name: "open-firewall-port"
+    description: >-
+      Adds an inbound rule to a sandbox's security group allowing traffic on a
+      specified port from a specified CIDR. Useful for exposing additional
+      services (e.g. a web app on port 8080) to the developer's network.
+
+      Choose this when a developer needs to access a service on a port that
+      isn't open by default (SSH/22 and Postgres/5432 are opened at
+      provisioning). Do not use it to open ports on production instances. Do
+      not use it to remove rules — security group rules can only be added.
+      Maximum of 10 custom rules per sandbox.
+
+      Requires: instance ID, port number, CIDR to allow.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "AWS Benchmark"
+    survey_enabled: true
+    survey_spec:
+      name: "Open port survey"
+      description: ""
+      spec:
+        - question_name: "Instance ID"
+          variable: "instance_id"
+          type: "text"
+          required: true
+        - question_name: "Port"
+          variable: "port"
+          type: "integer"
+          required: true
+        - question_name: "Protocol"
+          variable: "protocol"
+          type: "multiplechoice"
+          choices: "tcp\nudp"
+          default: "tcp"
+          required: true
+        - question_name: "Source CIDR"
+          variable: "source_cidr"
+          type: "text"
+          required: true
+
+  # ---------------------------------------------------------------------------
+  # 16. tail-app-logs
+  # ---------------------------------------------------------------------------
+  - name: "tail-app-logs"
+    description: >-
+      Retrieves the last N lines of a named log file or journald unit from a
+      sandbox instance. Returns the log content in the job output. Useful for
+      quick debugging without SSH access.
+
+      Choose this when a developer wants to see recent log output from a
+      service running on their sandbox. Do not use it for continuous log
+      streaming — it returns a snapshot. Do not use it to read arbitrary files
+      — use it only for well-known log paths and systemd units.
+
+      Requires: instance ID, log source (file path or systemd unit name).
+      Optional: number of lines.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "Benchmark SSH Key"
+    survey_enabled: true
+    survey_spec:
+      name: "Tail logs survey"
+      description: ""
+      spec:
+        - question_name: "Instance ID"
+          variable: "instance_id"
+          type: "text"
+          required: true
+        - question_name: "Log source"
+          variable: "log_source"
+          type: "text"
+          default: "postgresql"
+          required: true
+        - question_name: "Lines"
+          variable: "line_count"
+          type: "integer"
+          default: "100"
+          required: false
+
+  # ---------------------------------------------------------------------------
+  # 17. restart-app-services
+  # ---------------------------------------------------------------------------
+  - name: "restart-app-services"
+    description: >-
+      Restarts one or more systemd services on a sandbox instance. Waits for
+      each service to reach active state and reports the result. Useful after
+      config changes or when a service is in a bad state.
+
+      Choose this when a developer needs to restart services without SSH. Do
+      not use it to install or configure services — use rebuild-app-config for
+      that. Do not use it to restart the instance itself — use resize-sandbox
+      with the same instance type if a full reboot is needed.
+
+      Requires: instance ID, service names.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "Benchmark SSH Key"
+    survey_enabled: true
+    survey_spec:
+      name: "Restart services survey"
+      description: ""
+      spec:
+        - question_name: "Instance ID"
+          variable: "instance_id"
+          type: "text"
+          required: true
+        - question_name: "Services (comma-separated)"
+          variable: "services"
+          type: "text"
+          default: "postgresql"
+          required: true
+
+  # ---------------------------------------------------------------------------
+  # 18. check-sandbox-health
+  # ---------------------------------------------------------------------------
+  - name: "check-sandbox-health"
+    description: >-
+      Runs a health check against a sandbox instance: verifies SSH
+      connectivity, checks disk space, memory usage, CPU load, and reports the
+      status of all running systemd services. Returns a structured health
+      report.
+
+      Choose this when a developer wants a quick status check on their sandbox
+      without logging in. Do not use it to fix problems — it only reports them.
+      If services are down, use restart-app-services. If the instance is
+      unreachable, check the AWS console.
+
+      Requires: instance ID.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "Benchmark SSH Key"
+    survey_enabled: true
+    survey_spec:
+      name: "Health check survey"
+      description: ""
+      spec:
+        - question_name: "Instance ID"
+          variable: "instance_id"
+          type: "text"
+          required: true
+
+  # ---------------------------------------------------------------------------
+  # 19. list-team-sandboxes
+  # ---------------------------------------------------------------------------
+  - name: "list-team-sandboxes"
+    description: >-
+      Lists all active sandboxes belonging to a team, showing instance ID,
+      instance type, launch date, TTL remaining, installed packages, and
+      current status. Useful for auditing what a team currently has running.
+
+      Choose this when a developer or lead wants to see what sandboxes their
+      team has. Do not use it to find a specific sandbox by ID — use
+      check-sandbox-health instead. It only lists sandboxes tagged with the
+      specified team name.
+
+      Requires: team name.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "AWS Benchmark"
+    survey_enabled: true
+    survey_spec:
+      name: "List sandboxes survey"
+      description: ""
+      spec:
+        - question_name: "Team"
+          variable: "team"
+          type: "text"
+          required: true
+
+  # ---------------------------------------------------------------------------
+  # 20. report-sandbox-spend
+  # ---------------------------------------------------------------------------
+  - name: "report-sandbox-spend"
+    description: >-
+      Generates a cost report for a team's sandbox usage over a specified
+      period. Queries AWS Cost Explorer for EC2 costs tagged to the team and
+      returns a breakdown by instance, showing hours running and estimated
+      spend.
+
+      Choose this when a lead or finance needs to understand sandbox costs.
+      Do not use it for real-time billing — data is delayed by up to 24 hours.
+      Do not use it for non-sandbox EC2 costs — it only covers instances tagged
+      with the benchmark tag.
+
+      Requires: team name, reporting period in days.
+    organization: "Default"
+    job_type: "run"
+    project: "Developer Self-Service Playbooks"
+    playbook: "playbooks/placeholder.yml"
+    inventory: "Developer Sandboxes"
+    ask_variables_on_launch: true
+    credentials:
+      - "AWS Benchmark"
+    survey_enabled: true
+    survey_spec:
+      name: "Spend report survey"
+      description: ""
+      spec:
+        - question_name: "Team"
+          variable: "team"
+          type: "text"
+          required: true
+        - question_name: "Period (days)"
+          variable: "report_days"
+          type: "integer"
+          default: "30"
+          required: true

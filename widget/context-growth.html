@@ -1,0 +1,164 @@
+<div class="ctxw" id="ctxw">
+  <div class="ctxw-prompt">
+    <span class="ctxw-who">Developer, in Cursor</span>
+    <p id="ctxw-ask">I need a RHEL 9 sandbox for the payments team with Postgres 16 and 8&nbsp;GB of RAM. Tear it down after a week.</p>
+  </div>
+
+  <div class="ctxw-head">
+    <button type="button" id="ctxw-prev" aria-label="Previous turn">&larr;</button>
+    <input type="range" id="ctxw-turn" min="1" max="14" step="1" value="1" aria-label="Turn">
+    <button type="button" id="ctxw-next" aria-label="Next turn">&rarr;</button>
+    <output class="ctxw-turnval" id="ctxw-turnval" for="ctxw-turn">1</output>
+  </div>
+
+  <div class="ctxw-cols">
+    <section class="ctxw-col ctxw-a">
+      <h3>Agent with a shell</h3>
+      <p class="ctxw-sub">Builds the sandbox itself</p>
+      <p class="ctxw-num" id="ctxw-na">0</p>
+      <p class="ctxw-cap">tokens read so far</p>
+      <div class="ctxw-log" id="ctxw-sa"></div>
+    </section>
+    <section class="ctxw-col ctxw-b">
+      <h3>Agent calling AAP</h3>
+      <p class="ctxw-sub">Reads the catalogue, launches a job</p>
+      <p class="ctxw-num" id="ctxw-nb">0</p>
+      <p class="ctxw-cap">tokens read so far</p>
+      <div class="ctxw-log" id="ctxw-sb"></div>
+    </section>
+  </div>
+
+  <p class="ctxw-note" id="ctxw-note" role="status"></p>
+  <p class="ctxw-src" id="ctxw-src"></p>
+</div>
+
+<style>
+.ctxw{
+  --ink:#1a1a18; --ink2:#5d5d57; --ink3:#8a8a82;
+  --rule:#dcdad2; --panel:#f6f5f1;
+  --a:#a32d2d; --a-bg:#f7ecec; --b:#185fa5; --b-bg:#e8f0f8;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  color:var(--ink); max-width:720px; margin:2rem 0;
+  border-top:1px solid var(--ink); padding-top:1.25rem;
+}
+@media (prefers-color-scheme:dark){
+  .ctxw{--ink:#e8e6df;--ink2:#a8a69d;--ink3:#7a7871;--rule:#3a3934;--panel:#232320;
+        --a:#f09595;--a-bg:#2e1a1a;--b:#85b7eb;--b-bg:#152838;}
+}
+.ctxw *{box-sizing:border-box}
+.ctxw-prompt{background:var(--panel);padding:.875rem 1rem;margin-bottom:1.5rem}
+.ctxw-who{font-size:.6875rem;color:var(--ink3);letter-spacing:.04em;display:block;margin-bottom:.375rem}
+.ctxw-prompt p{margin:0;font-size:.9375rem;line-height:1.55}
+.ctxw-head{display:flex;align-items:center;gap:.625rem;margin-bottom:1.5rem}
+.ctxw-head button{font:inherit;font-size:.875rem;line-height:1;padding:.4rem .6rem;
+  background:none;border:1px solid var(--rule);color:var(--ink);cursor:pointer}
+.ctxw-head button:hover{border-color:var(--ink2)}
+.ctxw-head button:disabled{opacity:.3;cursor:default}
+.ctxw-head input[type=range]{flex:1;accent-color:var(--ink);height:1.5rem;cursor:pointer}
+.ctxw-head :focus-visible{outline:2px solid var(--b);outline-offset:2px}
+.ctxw-turnval{font:500 .875rem/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  min-width:3.5rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink2)}
+.ctxw-cols{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media (max-width:560px){.ctxw-cols{grid-template-columns:1fr;gap:2rem}}
+.ctxw-col h3{font-size:.9375rem;font-weight:500;margin:0 0 .125rem}
+.ctxw-sub{font-size:.8125rem;color:var(--ink3);margin:0 0 1rem}
+.ctxw-num{font:500 1.75rem/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  margin:0;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.ctxw-a .ctxw-num{color:var(--a)} .ctxw-b .ctxw-num{color:var(--b)}
+.ctxw-cap{font-size:.75rem;color:var(--ink3);margin:.25rem 0 0}
+.ctxw-log{margin-top:1rem;display:flex;flex-direction:column;gap:3px;min-height:340px}
+.ctxw-e{padding:.4rem .5rem;font:.6875rem/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.ctxw-a .ctxw-e{background:var(--a-bg);color:var(--a)}
+.ctxw-b .ctxw-e{background:var(--b-bg);color:var(--b)}
+.ctxw-e b{font-weight:500;display:block}
+.ctxw-e span{display:block;opacity:.75;margin-top:.15rem;white-space:pre-wrap;word-break:break-word}
+.ctxw-e i{float:right;font-style:normal;opacity:.6;font-size:.625rem;margin-left:.4rem}
+.ctxw-e.big{border-left:3px solid currentColor}
+.ctxw-done{font-size:.75rem;color:var(--ink3);border:1px dashed var(--rule);
+  padding:.5rem;line-height:1.45;margin-top:.25rem}
+.ctxw-note{font-size:.875rem;line-height:1.6;color:var(--ink2);
+  margin:1.75rem 0 0;padding-top:1rem;border-top:1px solid var(--rule);min-height:3.2em}
+.ctxw-src{font-size:.75rem;color:var(--ink3);margin:.5rem 0 0}
+</style>
+
+<script>
+(function(){
+var CONFIG = {
+  source: "Modelled, not measured. Replace with harness output before publishing.",
+  toolDefsA: 380,
+  toolDefsB: 2650,
+  a: [
+    {t:"user", d:"I need a RHEL 9 sandbox for the payments team\u2026", k:55},
+    {t:"run_command \u2014 virsh list --all", d:"finds a hypervisor with capacity", k:180},
+    {t:"run_command \u2014 virt-install", d:"--name dev-sbx-0142 --memory 8192 --vcpus 4\n  --location rhel9.iso --disk size=40\n[\u2026 boot log, 60 lines]", k:940},
+    {t:"run_command \u2014 ssh probe", d:"waits for sshd, retries twice", k:320},
+    {t:"run_command \u2014 subscription-manager register", d:"needs a credential in context to do this", k:410},
+    {t:"run_command \u2014 dnf module enable postgresql:16", d:"Enabling module streams:\n  postgresql   16", k:380},
+    {t:"run_command \u2014 dnf install postgresql-server", d:"Dependencies resolved.\n[\u2026 full transaction table, 94 packages]", k:2180, big:true},
+    {t:"run_command \u2014 postgresql-setup --initdb", d:"Initializing database \u2026 OK", k:290},
+    {t:"run_command \u2014 systemctl enable --now postgresql", d:"Created symlink /etc/systemd/system\u2026", k:240},
+    {t:"run_command \u2014 firewall-cmd", d:"--add-service=postgresql --permanent", k:260},
+    {t:"run_command \u2014 tag for teardown", d:"writes a cron job it invented itself", k:350},
+    {t:"run_command \u2014 register in CMDB", d:"curl POST, guesses the payload shape", k:300},
+    {t:"run_command \u2014 verify", d:"re-checks memory, service, port, tag", k:620},
+    {t:"assistant", d:"Sandbox dev-sbx-0142 is ready.", k:120}
+  ],
+  b: [
+    {t:"user", d:"I need a RHEL 9 sandbox for the payments team\u2026", k:55},
+    {t:"list_job_templates \u2014 Developer Self-Service", d:"20 templates, each with description and survey:\n  provision-dev-sandbox\n    RHEL VM for dev/test. Vars: rhel_version,\n    memory_gb, packages[], team, ttl_days\n  refresh-db-from-prod\n  rotate-dev-credentials\n  [\u2026 17 more]", k:3240, big:true},
+    {t:"launch_job \u2014 provision-dev-sandbox", d:"{rhel_version: 9, memory_gb: 8,\n packages: [postgresql16], team: payments,\n ttl_days: 7}", k:260},
+    {t:"get_job_status \u2014 4471", d:"successful. dev-sbx-0142", k:190}
+  ]
+};
+
+var root=document.getElementById('ctxw'); if(!root) return;
+var S=document.getElementById('ctxw-turn'),TV=document.getElementById('ctxw-turnval'),
+    PV=document.getElementById('ctxw-prev'),NX=document.getElementById('ctxw-next'),
+    NA=document.getElementById('ctxw-na'),NB=document.getElementById('ctxw-nb'),
+    SA=document.getElementById('ctxw-sa'),SB=document.getElementById('ctxw-sb'),
+    NOTE=document.getElementById('ctxw-note'),SRC=document.getElementById('ctxw-src');
+
+var MAX=CONFIG.a.length; S.max=MAX; SRC.textContent=CONFIG.source;
+
+function cum(steps,defs,n){
+  var total=0, ctx=0, m=Math.min(n,steps.length);
+  for(var i=0;i<m;i++){ ctx+=steps[i].k; total+=defs+ctx; }
+  return total;
+}
+function esc(s){return String(s).replace(/[&<>]/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+function ent(s){
+  return '<div class="ctxw-e'+(s.big?' big':'')+'"><i>'+s.k.toLocaleString('en-GB')+
+    '</i><b>'+esc(s.t)+'</b><span>'+esc(s.d)+'</span></div>';
+}
+function render(el,steps,n,doneMsg){
+  var h='',m=Math.min(n,steps.length);
+  for(var i=0;i<m;i++) h+=ent(steps[i]);
+  if(n>=steps.length && doneMsg) h+='<div class="ctxw-done">'+doneMsg+'</div>';
+  el.innerHTML=h;
+}
+function draw(n){
+  TV.textContent='turn '+n;
+  PV.disabled=(n<=1); NX.disabled=(n>=MAX);
+  var a=cum(CONFIG.a,CONFIG.toolDefsA,n), b=cum(CONFIG.b,CONFIG.toolDefsB,n);
+  NA.textContent=a.toLocaleString('en-GB');
+  NB.textContent=b.toLocaleString('en-GB');
+  render(SA,CONFIG.a,n,'Done at turn '+CONFIG.a.length+'.');
+  render(SB,CONFIG.b,n,'Done at turn '+CONFIG.b.length+'. Nothing further enters the context.');
+  if(a<b){
+    NOTE.textContent='The shell agent is still ahead. Reading the catalogue is the single '
+      +'largest thing AAP puts in context, and it is paid for on every turn after. Scope the '
+      +'templates a token can see and that cost falls with it.';
+  } else {
+    NOTE.textContent='The shell agent has now read '+(a/Math.max(b,1)).toFixed(1)
+      +' times as much. It re-reads every earlier command output on every later turn, so the '
+      +'gap widens whether or not anything goes wrong.';
+  }
+}
+S.addEventListener('input',function(e){draw(+e.target.value);});
+PV.addEventListener('click',function(){S.value=Math.max(1,+S.value-1);draw(+S.value);});
+NX.addEventListener('click',function(){S.value=Math.min(MAX,+S.value+1);draw(+S.value);});
+draw(1);
+})();
+
+</script>

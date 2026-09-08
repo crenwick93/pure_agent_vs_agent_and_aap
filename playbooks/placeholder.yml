@@ -1,0 +1,16 @@
+---
+# Placeholder playbook for the 19 stub templates in the Developer Self-Service
+# catalog. These templates exist so the agent has a realistic selection problem
+# (20 descriptions to read and choose from). Only provision-dev-sandbox has a
+# real playbook behind it.
+- name: Placeholder
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: This template is a placeholder
+      ansible.builtin.debug:
+        msg: >-
+          This is a stub template. It exists in the catalog so the agent has
+          to choose between 20 options, but it does not perform real work.
+          Only provision-dev-sandbox has a real playbook.
