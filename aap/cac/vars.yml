@@ -115,7 +115,7 @@ controller_templates:
         - question_name: "RHEL version"
           variable: "rhel_version"
           type: "integer"
-          default: "9"
+          default: 9
           required: true
         - question_name: "Memory (GB)"
           variable: "memory_gb"
@@ -135,7 +135,7 @@ controller_templates:
         - question_name: "TTL (days)"
           variable: "ttl_days"
           type: "integer"
-          default: "7"
+          default: 7
           required: true
 
   # ---------------------------------------------------------------------------
@@ -174,7 +174,7 @@ controller_templates:
         - question_name: "New TTL (days)"
           variable: "ttl_days"
           type: "integer"
-          default: "7"
+          default: 7
           required: true
 
   # ---------------------------------------------------------------------------
@@ -383,7 +383,7 @@ controller_templates:
         - question_name: "Retention count"
           variable: "retention_count"
           type: "integer"
-          default: "3"
+          default: 3
           required: false
 
   # ---------------------------------------------------------------------------
@@ -511,7 +511,7 @@ controller_templates:
         - question_name: "Volume size GB (new volumes only)"
           variable: "volume_size_gb"
           type: "integer"
-          default: "50"
+          default: 50
           required: false
 
   # ---------------------------------------------------------------------------
@@ -559,7 +559,7 @@ controller_templates:
         - question_name: "TTL (hours)"
           variable: "ttl_hours"
           type: "integer"
-          default: "8"
+          default: 8
           required: true
 
   # ---------------------------------------------------------------------------
@@ -777,7 +777,7 @@ controller_templates:
         - question_name: "Lines"
           variable: "line_count"
           type: "integer"
-          default: "100"
+          default: 100
           required: false
 
   # ---------------------------------------------------------------------------
@@ -921,5 +921,5 @@ controller_templates:
         - question_name: "Period (days)"
           variable: "report_days"
           type: "integer"
-          default: "30"
+          default: 30
           required: true
