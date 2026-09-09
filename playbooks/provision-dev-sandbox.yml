@@ -27,34 +27,34 @@
     dev_cidr: "{{ lookup('env', 'DEV_CIDR') | default('0.0.0.0/0', true) }}"
     cmdb_path: "{{ lookup('env', 'CMDB_PATH') | default('/tmp/cmdb.json', true) }}"
 
-    rhel_version: "{{ rhel_version | default(10) }}"
-    memory_gb: "{{ memory_gb | default(8) }}"
-    packages: "{{ packages | default('') }}"
-    team: "{{ team | default('unknown') }}"
-    ttl_days: "{{ ttl_days | default(7) }}"
+    _rhel_version: "{{ rhel_version | default(10) }}"
+    _memory_gb: "{{ memory_gb | default(8) }}"
+    _packages: "{{ packages | default('') }}"
+    _team: "{{ team | default('default') }}"
+    _ttl_days: "{{ ttl_days | default(7) }}"
 
     size_map:
       "4": t3.medium
       "8": t3.large
       "16": t3.xlarge
       "32": t3.2xlarge
-    instance_type: "{{ size_map[memory_gb | string] | default('t3.large') }}"
+    instance_type: "{{ size_map[_memory_gb | string] | default('t3.large') }}"
 
     ssh_opts: "-o StrictHostKeyChecking=no -o ConnectTimeout=10"
 
     # Map friendly package names to RHEL repo names
     # Handles postgresql16, postgresql-16, postgresql, etc.
     resolved_packages: >-
-      {{ packages | replace(',', ' ')
+      {{ _packages | replace(',', ' ')
          | regex_replace('postgresql[-\\s]?\\d*', 'postgresql-server') }}
 
   tasks:
     # ---- Find the latest RHEL AMI ----
-    - name: Look up latest RHEL {{ rhel_version }} AMI
+    - name: Look up latest RHEL {{ _rhel_version }} AMI
       amazon.aws.ec2_ami_info:
         region: "{{ aws_region }}"
         filters:
-          name: "RHEL-{{ rhel_version }}*-x86_64-*"
+          name: "RHEL-{{ _rhel_version }}*-x86_64-*"
           architecture: x86_64
         owners: ["309956199498"]
       register: ami_result
@@ -66,8 +66,8 @@
     # ---- Network ----
     - name: Create security group
       amazon.aws.ec2_security_group:
-        name: "sandbox-{{ team }}-{{ lookup('pipe', 'date +%s') }}"
-        description: "Developer sandbox for {{ team }}"
+        name: "sandbox-{{ _team }}-{{ lookup('pipe', 'date +%s') }}"
+        description: "Developer sandbox for {{ _team }}"
         region: "{{ aws_region }}"
         rules:
           - proto: tcp
@@ -80,7 +80,7 @@
             cidr_ip: "{{ dev_cidr }}"
         tags:
           benchmark: aap-token-bench
-          team: "{{ team }}"
+          team: "{{ _team }}"
       register: sg
 
     # ---- Launch ----
@@ -92,10 +92,10 @@
         key_name: "{{ ssh_key_name }}"
         security_group: "{{ sg.group_id }}"
         tags:
-          Name: "sandbox-{{ team }}"
+          Name: "sandbox-{{ _team }}"
           benchmark: aap-token-bench
-          team: "{{ team }}"
-          ttl_days: "{{ ttl_days | string }}"
+          team: "{{ _team }}"
+          ttl_days: "{{ _ttl_days | string }}"
           managed_by: aap
         wait: true
         state: running
@@ -125,7 +125,7 @@
     - name: Install packages
       ansible.builtin.command:
         cmd: ssh {{ ssh_opts }} ec2-user@{{ instance_ip }} "sudo dnf install -y {{ resolved_packages }}"
-      when: packages | length > 0
+      when: _packages | length > 0
       register: install
       changed_when: "'Complete!' in install.stdout"
 
@@ -134,7 +134,7 @@
         cmd: >-
           ssh {{ ssh_opts }} ec2-user@{{ instance_ip }}
           "sudo postgresql-setup --initdb && sudo systemctl enable --now postgresql"
-      when: "'postgresql' in packages"
+      when: "'postgresql' in _packages"
       register: pg
       failed_when: pg.rc != 0 and 'already initialized' not in pg.stderr
       changed_when: true
@@ -157,8 +157,8 @@
           {
             "instance_id": "{{ instance_id }}",
             "ip": "{{ instance_ip }}",
-            "team": "{{ team }}",
-            "ttl_days": {{ ttl_days }},
+            "team": "{{ _team }}",
+            "ttl_days": {{ _ttl_days }},
             "created": "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}",
             "managed_by": "aap"
           }
@@ -167,5 +167,5 @@
       ansible.builtin.debug:
         msg: >-
           ✅ Sandbox ready — {{ instance_id }} ({{ instance_ip }})
-          RHEL {{ rhel_version }}, {{ instance_type }}, team={{ team }},
-          ttl={{ ttl_days }}d. Run ./scripts/cleanup.sh to tear down.
+          RHEL {{ _rhel_version }}, {{ instance_type }}, team={{ _team }},
+          ttl={{ _ttl_days }}d. Run ./scripts/cleanup.sh to tear down.
