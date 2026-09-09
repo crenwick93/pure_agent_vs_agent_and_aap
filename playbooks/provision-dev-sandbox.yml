@@ -43,9 +43,10 @@
     ssh_opts: "-o StrictHostKeyChecking=no -o ConnectTimeout=10"
 
     # Map friendly package names to RHEL repo names
+    # Handles postgresql16, postgresql-16, postgresql, etc.
     resolved_packages: >-
       {{ packages | replace(',', ' ')
-         | regex_replace('postgresql\d*', 'postgresql-server') }}
+         | regex_replace('postgresql[-\\s]?\\d*', 'postgresql-server') }}
 
   tasks:
     # ---- Find the latest RHEL AMI ----
