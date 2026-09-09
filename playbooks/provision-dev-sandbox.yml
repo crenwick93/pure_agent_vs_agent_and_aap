@@ -69,9 +69,8 @@
         filters:
           name: "RHEL-{{ rhel_version }}*-x86_64-*"
           architecture: "x86_64"
-          owner-alias: "amazon"
         owners:
-          - "amazon"
+          - "309956199498"
       register: ami_result
 
     - name: Pick newest AMI

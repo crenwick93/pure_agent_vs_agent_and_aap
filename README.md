@@ -75,27 +75,35 @@ organization.
 Both arms use the same prompt. Describe the end state — never mention Ansible,
 AAP, or job templates:
 
-> I need a RHEL 9 sandbox for the payments team with Postgres 16 and 8 GB of
-> RAM. Tear it down after a week.
+> I need a RHEL 9 sandbox on AWS for the payments team with Postgres 16 and
+> 8 GB of RAM. Tear it down after a week.
+
+**Important: run both tests from an empty folder, not from this repo.** If the
+agent can see the playbooks, vars files, or this README, it has the answer
+before it starts. Open Cursor in an empty directory (e.g. `mkdir ~/bench-test
+&& cd ~/bench-test`) so each agent starts with nothing but the one-liner and
+its tools.
 
 ### Arm A — pure agent (shell access)
 
-Open a new Cursor chat. The agent has shell access with `aws` CLI and an SSH
-key. Give it the prompt and let it work. It will provision the instance, SSH in
-to configure it, install packages, harden SSH, set up the security group, and
-register in the CMDB — all step by step.
+Disable the AAP MCP server so the agent only has shell tools. In Cursor, open
+**Settings** (⌘ + ,) → **MCP**, find the AAP server, and toggle it off. Open
+a new Cursor chat in the empty folder. Give it the prompt and let it work. It will provision the instance, SSH in to configure it, install
+packages, harden SSH, set up the security group, and register in the CMDB —
+all step by step.
 
-Record: turns, tool calls, and observe how context grows with each command
-output.
+When it finishes, open the **Context Usage** panel at the bottom of the chat
+and screenshot the token breakdown. Record: total context, conversation
+tokens, turns, and tool calls.
 
 ### Arm B — agent + AAP MCP
 
-Open a new Cursor chat. The AAP MCP server is connected. Give it the same
-prompt. The agent will list available templates, pick `provision-dev-sandbox`,
-fill in the survey variables, launch the job, and read the status.
+Re-enable the AAP MCP server. Open a new Cursor chat in the same empty folder.
+Give it the same prompt. The agent will list available templates, pick
+Provision Dev Sandbox, fill in the survey variables, launch the job, and read
+the status.
 
-Record: turns, tool calls, and note how the context stays flat after the
-initial template catalog read.
+Screenshot the Context Usage panel again. Record the same metrics.
 
 ### After each run
 

@@ -101,7 +101,7 @@ controller_templates:
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
-    playbook: "playbooks/Provision Dev Sandbox.yml"
+    playbook: "playbooks/provision-dev-sandbox.yml"
     inventory: "Developer Sandboxes"
     ask_variables_on_launch: true
     credentials:
