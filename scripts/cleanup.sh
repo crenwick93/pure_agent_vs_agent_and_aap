@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-REGION="${AWS_REGION:-us-east-1}"
+REGION="${AWS_REGION:-eu-west-1}"
 TAG_KEY="${TAG_KEY:-benchmark}"
 TAG_VALUE="${TAG_VALUE:-aap-token-bench}"
 CMDB="${CMDB_PATH:-/tmp/cmdb.json}"

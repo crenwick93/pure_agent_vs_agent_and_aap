@@ -36,7 +36,7 @@ the controller.
 certificate (common in labs and demos). Set to `true` for production
 controllers with valid TLS.
 
-**`AWS_REGION`** — The AWS region to create instances in (e.g. `us-east-1`).
+**`AWS_REGION`** — The AWS region to create instances in (e.g. `eu-west-1`).
 Must match where your AWS CLI is configured.
 
 **`AWS_ACCESS_KEY_ID`** / **`AWS_SECRET_ACCESS_KEY`** — Your AWS credentials.
@@ -75,7 +75,7 @@ organization.
 Both arms use the same prompt. Describe the end state — never mention Ansible,
 AAP, or job templates:
 
-> Provision a new RHEL10 instance on AWS in us-east-1
+> Provision a new RHEL10 instance on AWS in eu-west-1
 
 **Important: run both tests from an empty folder, not from this repo.** If the
 agent can see the playbooks, vars files, or this README, it has the answer

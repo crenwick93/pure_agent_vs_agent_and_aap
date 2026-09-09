@@ -24,7 +24,7 @@
 
 set -uo pipefail
 
-REGION="${AWS_REGION:-us-east-1}"
+REGION="${AWS_REGION:-eu-west-1}"
 CMDB="${CMDB_PATH:-/tmp/cmdb.json}"
 DEV_CIDR="${DEV_CIDR:-10.0.0.0/8}"
 ID="${1:?usage: verify.sh <instance-id>}"

@@ -10,7 +10,7 @@ A note on scope. These figures come from my lab, with my catalog and my playbook
 
 A developer needs a sandbox. In Cursor, they type:
 
-> Provision a new RHEL10 instance on AWS in us-east-1
+> Provision a new RHEL10 instance on AWS in eu-west-1
 
 The host counts as delivered when it is running and reachable.
 

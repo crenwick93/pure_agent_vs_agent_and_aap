@@ -46,7 +46,7 @@ controller_inventory_sources:
     source_vars:
       plugin: amazon.aws.aws_ec2
       regions:
-        - "{{ lookup('env', 'AWS_REGION') | default('us-east-1', true) }}"
+        - "{{ lookup('env', 'AWS_REGION') | default('eu-west-1', true) }}"
       filters:
         "tag:benchmark": "aap-token-bench"
       hostnames:
