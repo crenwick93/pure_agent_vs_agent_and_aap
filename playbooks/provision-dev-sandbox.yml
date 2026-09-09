@@ -245,6 +245,6 @@
       ansible.builtin.debug:
         msg: >-
           Sandbox ready: {{ instance_id }} ({{ instance_ip }})
-          — {{ instance_type }}, RHEL {{ rhel_version }},
-          team={{ team }}, ttl_days={{ ttl_days }}.
+          — RHEL {{ rhel_version | default(9) }},
+          team={{ team | default('unknown') }}, ttl_days={{ ttl_days | default(7) }}.
           Run ./scripts/cleanup.sh to tear down when done.
