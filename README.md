@@ -75,7 +75,8 @@ organization.
 Both arms use the same prompt. Describe the end state — never mention Ansible,
 AAP, or job templates:
 
-> Provision a new RHEL10 instance on AWS in eu-west-1
+> I need a RHEL 10 sandbox in eu-west-1 for the payments team with 8 GB of
+> RAM. Install PostgreSQL, harden SSH, and tag it for teardown after 7 days.
 
 **Important: run both tests from an empty folder, not from this repo.** If the
 agent can see the playbooks, vars files, or this README, it has the answer

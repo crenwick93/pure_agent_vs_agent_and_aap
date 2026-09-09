@@ -10,7 +10,7 @@ A note on scope. These figures come from my lab, with my catalog and my playbook
 
 A developer needs a sandbox. In Cursor, they type:
 
-> Provision a new RHEL10 instance on AWS in eu-west-1
+> I need a RHEL 10 sandbox in eu-west-1 for the payments team with 8 GB of RAM. Install PostgreSQL, harden SSH, and tag it for teardown after 7 days.
 
 The host counts as delivered when it is running and reachable.
 
