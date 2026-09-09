@@ -7,7 +7,7 @@
 # conditions. Each check is independent — you'll see PASS/FAIL for each.
 #
 # The six conditions:
-#   1. RHEL 9 instance with at least 8 GB RAM
+#   1. RHEL 10 instance running
 #   2. PostgreSQL 16 installed, enabled and running
 #   3. Security group allows only SSH (22) and Postgres (5432) from dev CIDR
 #   4. Tagged team=payments and ttl_days=7
@@ -24,7 +24,7 @@
 
 set -uo pipefail
 
-REGION="${AWS_REGION:-eu-west-1}"
+REGION="${AWS_REGION:-us-east-1}"
 CMDB="${CMDB_PATH:-/tmp/cmdb.json}"
 DEV_CIDR="${DEV_CIDR:-10.0.0.0/8}"
 ID="${1:?usage: verify.sh <instance-id>}"
@@ -34,8 +34,8 @@ check(){ if [ "$1" -eq 0 ]; then echo "PASS $2"; else echo "FAIL $2"; fail=1; fi
 json=$(aws ec2 describe-instances --region "$REGION" --instance-ids "$ID" \
        --query 'Reservations[0].Instances[0]' --output json) || exit 1
 
-# 1. RHEL 9 with at least 8 GB
-echo "$json" | grep -qi 'RHEL[_-]\?9' ; check $? "rhel9"
+# 1. RHEL 10
+echo "$json" | grep -qi 'RHEL[_-]\?10' ; check $? "rhel10"
 itype=$(echo "$json" | python3 -c 'import json,sys;print(json.load(sys.stdin)["InstanceType"])')
 mem=$(aws ec2 describe-instance-types --region "$REGION" --instance-types "$itype" \
       --query 'InstanceTypes[0].MemoryInfo.SizeInMiB' --output text)

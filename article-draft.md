@@ -10,9 +10,9 @@ A note on scope. These figures come from my lab, with my catalog and my playbook
 
 A developer needs a sandbox. In Cursor, they type:
 
-> I need a RHEL 9 sandbox on AWS for the payments team with Postgres 16 and 8 GB of RAM. Tear it down after a week.
+> Provision a new RHEL10 instance on AWS in us-east-1
 
-The host counts as delivered when it is registered, has Postgres running, has the firewall configured, is recorded in the CMDB, and has a teardown date set.
+The host counts as delivered when it is running and reachable.
 
 ## Two ways to answer it
 

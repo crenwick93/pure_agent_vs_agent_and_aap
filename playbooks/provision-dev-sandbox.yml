@@ -9,7 +9,7 @@
 #   team          (text)         — team requesting the sandbox
 #   memory_gb     (choice)       — 4, 8, 16, or 32
 #   packages      (text)         — e.g. "postgresql16,nginx"
-#   rhel_version  (int)          — defaults to 9
+#   rhel_version  (int)          — defaults to 10
 #   ttl_days      (int)          — auto-teardown tag, defaults to 7
 #
 # Stubs:
@@ -22,12 +22,12 @@
   gather_facts: false
 
   vars:
-    aws_region: "{{ lookup('env', 'AWS_REGION') | default('eu-west-1', true) }}"
+    aws_region: "{{ lookup('env', 'AWS_REGION') | default('us-east-1', true) }}"
     ssh_key_name: "{{ lookup('env', 'SSH_KEY_NAME') | default('agent_test', true) }}"
     dev_cidr: "{{ lookup('env', 'DEV_CIDR') | default('0.0.0.0/0', true) }}"
     cmdb_path: "{{ lookup('env', 'CMDB_PATH') | default('/tmp/cmdb.json', true) }}"
 
-    rhel_version: "{{ rhel_version | default(9) }}"
+    rhel_version: "{{ rhel_version | default(10) }}"
     memory_gb: "{{ memory_gb | default(8) }}"
     packages: "{{ packages | default('') }}"
     team: "{{ team | default('unknown') }}"

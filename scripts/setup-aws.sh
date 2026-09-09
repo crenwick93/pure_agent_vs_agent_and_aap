@@ -13,10 +13,10 @@ set -euo pipefail
 #   ./scripts/setup-aws.sh
 #
 # Optional environment variables:
-#   AWS_REGION          (default: eu-west-1)
+#   AWS_REGION          (default: us-east-1)
 #   AAP_CONTROLLER_IP   IP of your AAP controller for SSH access (optional)
 
-REGION="${AWS_REGION:-eu-west-1}"
+REGION="${AWS_REGION:-us-east-1}"
 SG_NAME="benchmark-sandbox-sg"
 TAG_KEY="project"
 TAG_VALUE="aap-token-bench"

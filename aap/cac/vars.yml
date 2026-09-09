@@ -46,7 +46,7 @@ controller_inventory_sources:
     source_vars:
       plugin: amazon.aws.aws_ec2
       regions:
-        - "{{ lookup('env', 'AWS_REGION') | default('eu-west-1', true) }}"
+        - "{{ lookup('env', 'AWS_REGION') | default('us-east-1', true) }}"
       filters:
         "tag:benchmark": "aap-token-bench"
       hostnames:
@@ -81,7 +81,7 @@ controller_templates:
         - question_name: "RHEL version"
           variable: "rhel_version"
           type: "integer"
-          default: 9
+          default: 10
           required: true
         - question_name: "Memory (GB)"
           variable: "memory_gb"
@@ -97,7 +97,8 @@ controller_templates:
         - question_name: "Team"
           variable: "team"
           type: "text"
-          required: true
+          default: "default"
+          required: false
         - question_name: "TTL (days)"
           variable: "ttl_days"
           type: "integer"
