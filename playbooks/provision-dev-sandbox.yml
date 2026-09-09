@@ -154,11 +154,17 @@
     ssh_args: "-o StrictHostKeyChecking=no -o ConnectTimeout=10"
 
   tasks:
+    - name: Map package names to RHEL 9 names
+      ansible.builtin.set_fact:
+        resolved_packages: >-
+          {{ packages | replace(',', ' ')
+             | regex_replace('postgresql\d*', 'postgresql-server') }}
+
     - name: Install packages
       ansible.builtin.command:
         cmd: >
           ssh {{ ssh_args }} ec2-user@{{ instance_ip }}
-          "sudo dnf install -y {{ packages | replace(',', ' ') }}"
+          "sudo dnf install -y {{ resolved_packages }}"
       when: packages | length > 0
       register: install_result
       changed_when: "'Complete!' in install_result.stdout"
