@@ -1,20 +1,8 @@
 ---
-# =============================================================================
 # AAP Configuration as Code — Developer Self-Service catalog
-# =============================================================================
-#
-# 20 job templates scoped to a Developer Self-Service organization.
-# That number is a scoped developer catalog, not a claim about a typical
-# estate. Say so in the article.
-#
-# Template descriptions are a machine interface. They tell a model what the
-# template does, when to choose it, what it will not do, and what it needs.
-# "Builds a sandbox" tells a model nothing about when to pick this over the
-# four adjacent templates.
+# 20 job templates. Only "Provision Dev Sandbox" has a real playbook.
+# The rest are placeholders so the agent has a realistic selection problem.
 
-# -----------------------------------------------------------------------------
-# Credentials
-# -----------------------------------------------------------------------------
 controller_credential_types: []
 
 controller_credentials:
@@ -34,9 +22,6 @@ controller_credentials:
       username: "{{ aws_access_key }}"
       password: "{{ aws_secret_key }}"
 
-# -----------------------------------------------------------------------------
-# Project
-# -----------------------------------------------------------------------------
 controller_projects:
   - name: "Developer Self-Service Playbooks"
     description: "Playbooks backing the developer self-service catalog"
@@ -46,9 +31,6 @@ controller_projects:
     scm_branch: "main"
     scm_update_on_launch: true
 
-# -----------------------------------------------------------------------------
-# Inventory
-# -----------------------------------------------------------------------------
 controller_inventories:
   - name: "Developer Sandboxes"
     description: "EC2 instances tagged benchmark=aap-token-bench"
@@ -74,30 +56,14 @@ controller_inventory_sources:
         ansible_user: "'ec2-user'"
         ansible_become: "true"
 
-# -----------------------------------------------------------------------------
-# Job Templates — 20 total
-# -----------------------------------------------------------------------------
+# --- Job Templates ---
 controller_templates:
 
-  # ---------------------------------------------------------------------------
-  # 1. Provision Dev Sandbox  (THE REAL ONE — has a playbook)
-  # ---------------------------------------------------------------------------
+  # 1. Provision Dev Sandbox (REAL PLAYBOOK)
   - name: "Provision Dev Sandbox"
     description: >-
-      Creates a new RHEL EC2 instance for development or testing, installs the
-      requested packages, applies the standard SSH hardening baseline, restricts
-      inbound access to the requesting team's CIDR, registers it in the CMDB
-      and sets an automatic teardown date via tags.
-
-      Choose this when someone needs a brand-new sandbox that does not exist
-      yet. Do not use it to change an existing sandbox: use Resize Sandbox to
-      alter its instance type, Extend Sandbox TTL to postpone teardown, or
-      Rebuild App Config to change installed software. It does not provision
-      databases with production data — use Refresh DB From Prod for that after
-      the sandbox exists.
-
-      Requires: team name, memory size, desired packages, TTL in days. RHEL
-      version defaults to 9.
+      Creates a new RHEL EC2 sandbox with requested packages, SSH hardening,
+      and CMDB registration. Requires: team, memory_gb, packages, ttl_days.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -138,21 +104,11 @@ controller_templates:
           default: 7
           required: true
 
-  # ---------------------------------------------------------------------------
   # 2. Extend Sandbox TTL
-  # ---------------------------------------------------------------------------
   - name: "Extend Sandbox TTL"
     description: >-
-      Extends the automatic teardown date of an existing sandbox by updating
-      its ttl_days tag and rescheduling the cleanup job. The sandbox keeps its
-      current configuration — nothing is reinstalled or restarted.
-
-      Choose this when a developer needs their sandbox to live longer than
-      originally requested. Do not use it to create a sandbox (use
-      Provision Dev Sandbox) or to change what is installed on one (use
-      Rebuild App Config). Maximum extension is 30 days.
-
-      Requires: the instance ID of the sandbox and the new TTL in days.
+      Extends the teardown date of an existing sandbox. Does not change config.
+      Requires: instance_id, ttl_days. Max 30 days.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -177,22 +133,11 @@ controller_templates:
           default: 7
           required: true
 
-  # ---------------------------------------------------------------------------
   # 3. Teardown Sandbox
-  # ---------------------------------------------------------------------------
   - name: "Teardown Sandbox"
     description: >-
-      Terminates an existing sandbox instance, removes its security group,
-      and deletes its CMDB entry. The instance is stopped and terminated — this
-      cannot be undone.
-
-      Choose this when a sandbox is no longer needed and should be removed
-      immediately rather than waiting for its TTL to expire. Do not use it to
-      temporarily stop a sandbox (there is no Stop Sandbox template — just
-      extend the TTL and leave it). Do not use it to remove all sandboxes at
-      once — it acts on a single instance.
-
-      Requires: the instance ID.
+      Terminates a sandbox, removes its security group and CMDB entry.
+      Irreversible. Requires: instance_id.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -212,23 +157,12 @@ controller_templates:
           type: "text"
           required: true
 
-  # ---------------------------------------------------------------------------
   # 4. Refresh DB From Prod
-  # ---------------------------------------------------------------------------
   - name: "Refresh DB From Prod"
     description: >-
-      Restores a sanitised copy of a production database into a sandbox's
-      PostgreSQL instance. The dump is pulled from the nightly backup bucket,
-      loaded into the target database, and then PII columns are masked using
-      the standard anonymisation rules.
-
-      Choose this when a developer needs realistic data to test against.
-      The sandbox must already exist and have PostgreSQL running — use
-      Provision Dev Sandbox first if it does not. Do not use this to create a
-      sandbox or to install PostgreSQL; it assumes both are already present.
-      Do not use it against a production host.
-
-      Requires: instance ID, source database name, target database name.
+      Loads a sanitised production database copy into a sandbox's PostgreSQL.
+      Sandbox must already exist with Postgres running. Requires: instance_id,
+      source_db, target_db.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -258,22 +192,11 @@ controller_templates:
           default: "payments_dev"
           required: true
 
-  # ---------------------------------------------------------------------------
   # 5. Rotate Dev Credentials
-  # ---------------------------------------------------------------------------
   - name: "Rotate Dev Credentials"
     description: >-
-      Rotates database passwords and application API keys on a sandbox instance.
-      Generates new random credentials, updates the PostgreSQL roles, writes
-      the new values to the application config files, and restarts affected
-      services.
-
-      Choose this when credentials on a sandbox may have been exposed or when
-      policy requires periodic rotation. Do not use it to rotate production
-      credentials. Do not use it to change SSH keys — SSH key management is
-      handled by the Machine credential in the controller.
-
-      Requires: instance ID. Optionally specify which services to restart.
+      Rotates database passwords and API keys on a sandbox. Does not affect
+      production. Requires: instance_id.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -291,28 +214,12 @@ controller_templates:
           variable: "instance_id"
           type: "text"
           required: true
-        - question_name: "Services to restart"
-          variable: "restart_services"
-          type: "text"
-          default: "all"
-          required: false
 
-  # ---------------------------------------------------------------------------
   # 6. Seed Test Data
-  # ---------------------------------------------------------------------------
   - name: "Seed Test Data"
     description: >-
-      Loads a named fixture dataset into a sandbox's database. Fixture sets are
-      predefined collections of test data for specific use cases (e.g.
-      payments-happy-path, edge-cases-refunds). The database is truncated
-      before loading unless append mode is requested.
-
-      Choose this when a developer needs repeatable, deterministic test data
-      rather than a production copy. Do not use it for production-like data —
-      use Refresh DB From Prod instead. The sandbox must have PostgreSQL
-      running.
-
-      Requires: instance ID, fixture set name. Optional: append mode.
+      Loads a named fixture dataset into a sandbox database. Truncates first
+      unless append mode. Requires: instance_id, fixture_set.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -335,29 +242,12 @@ controller_templates:
           type: "multiplechoice"
           choices: "payments-happy-path\nedge-cases-refunds\nload-test-10k\nminimal"
           required: true
-        - question_name: "Append mode"
-          variable: "append_mode"
-          type: "multiplechoice"
-          choices: "false\ntrue"
-          default: "false"
-          required: false
 
-  # ---------------------------------------------------------------------------
   # 7. Snapshot Sandbox
-  # ---------------------------------------------------------------------------
   - name: "Snapshot Sandbox"
     description: >-
-      Creates an AMI snapshot of a sandbox instance so it can be restored later
-      to this exact state. Tags the AMI with the sandbox name, team, and
-      creation timestamp. Old snapshots beyond the retention limit are
-      automatically deregistered.
-
-      Choose this when a developer wants to save the current state before a
-      risky change (e.g. before a large migration or config experiment). Do
-      not use it as a backup strategy for production. To restore a snapshot,
-      use Restore Sandbox.
-
-      Requires: instance ID. Optional: snapshot description, retention count.
+      Creates an AMI snapshot of a sandbox for later restore. Requires:
+      instance_id.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -375,33 +265,12 @@ controller_templates:
           variable: "instance_id"
           type: "text"
           required: true
-        - question_name: "Description"
-          variable: "snapshot_description"
-          type: "text"
-          default: ""
-          required: false
-        - question_name: "Retention count"
-          variable: "retention_count"
-          type: "integer"
-          default: 3
-          required: false
 
-  # ---------------------------------------------------------------------------
   # 8. Restore Sandbox
-  # ---------------------------------------------------------------------------
   - name: "Restore Sandbox"
     description: >-
-      Replaces an existing sandbox with a new instance launched from a
-      previously saved AMI snapshot. The old instance is terminated, a new one
-      is launched from the AMI, and the CMDB entry is updated to point at the
-      new instance. Security group rules and tags are preserved.
-
-      Choose this when a developer wants to roll back to a saved state after a
-      failed experiment. Do not use it to create a new sandbox from scratch —
-      use Provision Dev Sandbox. Do not use it if no snapshot exists — use
-      Snapshot Sandbox first.
-
-      Requires: instance ID of the sandbox to replace, AMI ID to restore from.
+      Replaces a sandbox with a new instance from a saved AMI snapshot.
+      Old instance is terminated. Requires: instance_id, ami_id.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -425,21 +294,11 @@ controller_templates:
           type: "text"
           required: true
 
-  # ---------------------------------------------------------------------------
   # 9. Resize Sandbox
-  # ---------------------------------------------------------------------------
   - name: "Resize Sandbox"
     description: >-
-      Changes the instance type of an existing sandbox. The instance is stopped,
-      the instance type is changed, and it is restarted. All data on the root
-      volume is preserved. The CMDB entry is updated with the new instance type.
-
-      Choose this when a developer needs more (or less) CPU or memory on an
-      existing sandbox. Do not use it to create a sandbox — use
-      Provision Dev Sandbox. Do not use it to change installed software — use
-      Rebuild App Config. The instance will experience a brief restart.
-
-      Requires: instance ID, new instance type.
+      Changes the instance type of a sandbox (stop → resize → start).
+      Data preserved. Requires: instance_id, instance_type.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -464,22 +323,11 @@ controller_templates:
           default: "t3.large"
           required: true
 
-  # ---------------------------------------------------------------------------
   # 10. Attach Shared Volume
-  # ---------------------------------------------------------------------------
   - name: "Attach Shared Volume"
     description: >-
       Creates and attaches an EBS volume to a sandbox, or attaches an existing
-      shared volume. The volume is formatted (if new) and mounted at the
-      requested path. Useful for sharing data between sandboxes or for
-      workloads that need more storage than the root volume provides.
-
-      Choose this when a sandbox needs additional storage or access to a shared
-      data volume. Do not use it to increase the root volume — resize the
-      instance instead. Do not use it to attach volumes across availability
-      zones.
-
-      Requires: instance ID, mount path. Optional: existing volume ID, size.
+      one. Requires: instance_id, mount_path.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -503,32 +351,12 @@ controller_templates:
           type: "text"
           default: "/mnt/shared"
           required: true
-        - question_name: "Existing Volume ID (leave empty to create new)"
-          variable: "volume_id"
-          type: "text"
-          default: ""
-          required: false
-        - question_name: "Volume size GB (new volumes only)"
-          variable: "volume_size_gb"
-          type: "integer"
-          default: 50
-          required: false
 
-  # ---------------------------------------------------------------------------
   # 11. Grant Temp DB Access
-  # ---------------------------------------------------------------------------
   - name: "Grant Temp DB Access"
     description: >-
-      Creates a temporary PostgreSQL user on a sandbox with a scoped grant
-      (read-only or read-write on a named database) and a time-limited
-      password. The user is automatically dropped after the specified TTL by
-      a scheduled pg_cron job.
-
-      Choose this when another developer or a CI pipeline needs temporary
-      access to a sandbox database without using the owner credentials. Do not
-      use it to grant permanent access. Do not use it on production databases.
-
-      Requires: instance ID, database name, access level, TTL in hours.
+      Creates a time-limited PostgreSQL user on a sandbox. Auto-drops after
+      TTL. Requires: instance_id, database_name, access_level, ttl_hours.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -562,23 +390,11 @@ controller_templates:
           default: 8
           required: true
 
-  # ---------------------------------------------------------------------------
   # 12. Rebuild App Config
-  # ---------------------------------------------------------------------------
   - name: "Rebuild App Config"
     description: >-
-      Reinstalls and reconfigures the application stack on an existing sandbox
-      without reprovisioning the instance. Reinstalls the requested packages,
-      regenerates config files from templates, and restarts services. The
-      instance itself, its IP, and its security group are unchanged.
-
-      Choose this when a developer needs to change what software is installed
-      on a sandbox or reset application config to defaults. Do not use it to
-      create a sandbox — use Provision Dev Sandbox. Do not use it to change
-      the instance type — use Resize Sandbox. Data in databases is preserved
-      unless you explicitly include a database reset package.
-
-      Requires: instance ID, packages to install.
+      Reinstalls packages and resets config on an existing sandbox without
+      reprovisioning. Requires: instance_id, packages.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -600,28 +416,12 @@ controller_templates:
           variable: "packages"
           type: "text"
           required: true
-        - question_name: "Reset config to defaults"
-          variable: "reset_config"
-          type: "multiplechoice"
-          choices: "true\nfalse"
-          default: "true"
-          required: false
 
-  # ---------------------------------------------------------------------------
   # 13. Run Integration Suite
-  # ---------------------------------------------------------------------------
   - name: "Run Integration Suite"
     description: >-
-      Runs a named integration test suite against a sandbox instance. Clones
-      the test repository, installs dependencies, executes the tests, and
-      returns the results summary. Test output is captured in the job log.
-
-      Choose this when a developer wants to validate that their sandbox is
-      correctly configured by running the standard integration tests. Do not
-      use it to deploy code — it only runs tests. The sandbox must be
-      provisioned and the relevant application stack installed.
-
-      Requires: instance ID, test suite name. Optional: test filter pattern.
+      Runs a named integration test suite against a sandbox and returns
+      results. Requires: instance_id, test_suite.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -644,28 +444,12 @@ controller_templates:
           type: "multiplechoice"
           choices: "payments-api\nauth-service\nfull-stack\nsmoke"
           required: true
-        - question_name: "Test filter (optional)"
-          variable: "test_filter"
-          type: "text"
-          default: ""
-          required: false
 
-  # ---------------------------------------------------------------------------
   # 14. Sync Secrets
-  # ---------------------------------------------------------------------------
   - name: "Sync Secrets"
     description: >-
-      Pulls the latest development secrets from the team's secrets vault and
-      writes them to the standard config locations on a sandbox instance.
-      Secrets include database connection strings, API keys for third-party
-      dev/sandbox environments, and TLS certificates for local services.
-
-      Choose this when a developer's sandbox has stale or missing secrets, or
-      after a credential rotation in the vault. Do not use it to rotate the
-      secrets themselves — use Rotate Dev Credentials for that. Do not use it
-      on production instances.
-
-      Requires: instance ID, team name.
+      Pulls latest dev secrets from the vault onto a sandbox. Requires:
+      instance_id, team.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -688,22 +472,11 @@ controller_templates:
           type: "text"
           required: true
 
-  # ---------------------------------------------------------------------------
   # 15. Open Firewall Port
-  # ---------------------------------------------------------------------------
   - name: "Open Firewall Port"
     description: >-
-      Adds an inbound rule to a sandbox's security group allowing traffic on a
-      specified port from a specified CIDR. Useful for exposing additional
-      services (e.g. a web app on port 8080) to the developer's network.
-
-      Choose this when a developer needs to access a service on a port that
-      isn't open by default (SSH/22 and Postgres/5432 are opened at
-      provisioning). Do not use it to open ports on production instances. Do
-      not use it to remove rules — security group rules can only be added.
-      Maximum of 10 custom rules per sandbox.
-
-      Requires: instance ID, port number, CIDR to allow.
+      Adds an inbound security group rule on a sandbox for a specified port
+      and CIDR. Requires: instance_id, port, source_cidr.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -725,33 +498,16 @@ controller_templates:
           variable: "port"
           type: "integer"
           required: true
-        - question_name: "Protocol"
-          variable: "protocol"
-          type: "multiplechoice"
-          choices: "tcp\nudp"
-          default: "tcp"
-          required: true
         - question_name: "Source CIDR"
           variable: "source_cidr"
           type: "text"
           required: true
 
-  # ---------------------------------------------------------------------------
   # 16. Tail App Logs
-  # ---------------------------------------------------------------------------
   - name: "Tail App Logs"
     description: >-
-      Retrieves the last N lines of a named log file or journald unit from a
-      sandbox instance. Returns the log content in the job output. Useful for
-      quick debugging without SSH access.
-
-      Choose this when a developer wants to see recent log output from a
-      service running on their sandbox. Do not use it for continuous log
-      streaming — it returns a snapshot. Do not use it to read arbitrary files
-      — use it only for well-known log paths and systemd units.
-
-      Requires: instance ID, log source (file path or systemd unit name).
-      Optional: number of lines.
+      Returns the last N lines of a log file or journald unit from a sandbox.
+      Requires: instance_id, log_source.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -780,21 +536,11 @@ controller_templates:
           default: 100
           required: false
 
-  # ---------------------------------------------------------------------------
   # 17. Restart App Services
-  # ---------------------------------------------------------------------------
   - name: "Restart App Services"
     description: >-
-      Restarts one or more systemd services on a sandbox instance. Waits for
-      each service to reach active state and reports the result. Useful after
-      config changes or when a service is in a bad state.
-
-      Choose this when a developer needs to restart services without SSH. Do
-      not use it to install or configure services — use Rebuild App Config for
-      that. Do not use it to restart the instance itself — use Resize Sandbox
-      with the same instance type if a full reboot is needed.
-
-      Requires: instance ID, service names.
+      Restarts systemd services on a sandbox and waits for active state.
+      Requires: instance_id, services.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -818,22 +564,11 @@ controller_templates:
           default: "postgresql"
           required: true
 
-  # ---------------------------------------------------------------------------
   # 18. Check Sandbox Health
-  # ---------------------------------------------------------------------------
   - name: "Check Sandbox Health"
     description: >-
-      Runs a health check against a sandbox instance: verifies SSH
-      connectivity, checks disk space, memory usage, CPU load, and reports the
-      status of all running systemd services. Returns a structured health
-      report.
-
-      Choose this when a developer wants a quick status check on their sandbox
-      without logging in. Do not use it to fix problems — it only reports them.
-      If services are down, use Restart App Services. If the instance is
-      unreachable, check the AWS console.
-
-      Requires: instance ID.
+      Runs a health check on a sandbox: SSH, disk, memory, CPU, services.
+      Requires: instance_id.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -852,21 +587,11 @@ controller_templates:
           type: "text"
           required: true
 
-  # ---------------------------------------------------------------------------
   # 19. List Team Sandboxes
-  # ---------------------------------------------------------------------------
   - name: "List Team Sandboxes"
     description: >-
-      Lists all active sandboxes belonging to a team, showing instance ID,
-      instance type, launch date, TTL remaining, installed packages, and
-      current status. Useful for auditing what a team currently has running.
-
-      Choose this when a developer or lead wants to see what sandboxes their
-      team has. Do not use it to find a specific sandbox by ID — use
-      Check Sandbox Health instead. It only lists sandboxes tagged with the
-      specified team name.
-
-      Requires: team name.
+      Lists all active sandboxes for a team with IDs, types, and TTL remaining.
+      Requires: team.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -885,22 +610,11 @@ controller_templates:
           type: "text"
           required: true
 
-  # ---------------------------------------------------------------------------
   # 20. Report Sandbox Spend
-  # ---------------------------------------------------------------------------
   - name: "Report Sandbox Spend"
     description: >-
-      Generates a cost report for a team's sandbox usage over a specified
-      period. Queries AWS Cost Explorer for EC2 costs tagged to the team and
-      returns a breakdown by instance, showing hours running and estimated
-      spend.
-
-      Choose this when a lead or finance needs to understand sandbox costs.
-      Do not use it for real-time billing — data is delayed by up to 24 hours.
-      Do not use it for non-sandbox EC2 costs — it only covers instances tagged
-      with the benchmark tag.
-
-      Requires: team name, reporting period in days.
+      Generates a cost report for a team's sandbox EC2 usage over a period.
+      Requires: team, report_days.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
