@@ -66,21 +66,47 @@ ansible-galaxy collection install -r aap/cac/requirements.yml
 ./aap/scripts/cac-apply.sh
 ```
 
-This pushes the 20 job templates, credentials, project, and inventory into your
-AAP controller. You should see them appear under the **Developer Self-Service**
-organization.
+This pushes the 20 job templates, credentials, project, and inventory into the
+**Default** organization (not a separate org). Five templates have real
+playbooks: Provision Dev Sandbox, Open Firewall Port, Check Sandbox Health,
+Restart App Services, Tail App Logs. The other 15 are placeholders so catalog
+search is still a 20-item problem.
+
+### 3. Prepare AWS networking (once)
+
+```bash
+./scripts/setup-aws.sh
+```
+
+Creates or reuses a default VPC and a security group named
+`benchmark-sandbox-sg` in `$AWS_REGION`. Arm A's Cursor rule assumes that
+group exists.
+
+### 4. Empty test folder + Cursor rules
+
+**Do not run the agent with this repo open.** If it can see the playbooks, it
+already has the answer.
+
+```bash
+mkdir -p ~/bench-test/.cursor/rules
+cp cursor-rules/arm-a-shell.mdc ~/bench-test/.cursor/rules/assistant.mdc
+# Edit the key path / region in that file if yours differ.
+```
+
+Open Cursor in `~/bench-test`, not in this repo. Restart Cursor after swapping
+the rule file.
 
 ## Running the test
 
 The unit of work is a **session**: five requests in the **same chat**. A
-developer does not provision and leave. They keep asking. Record **conversation
-tokens** after each request (Context Usage panel). Ignore the ~13K of Cursor
-tool definitions — both arms pay that.
+developer does not provision and leave. They keep asking.
 
-Never mention Ansible, AAP, or job templates.
+Record **conversation tokens** after each request (Context Usage panel at the
+bottom of the chat). Ignore the ~13K of Cursor tool definitions — both arms
+pay that. Plot conversation tokens vs request number. The crossover is the
+result.
 
-**Important: run both tests from an empty folder, not from this repo.** If the
-agent can see the playbooks, it has the answer before it starts.
+Never mention Ansible, AAP, or job templates in any message.
 
 ### The five requests
 
@@ -99,28 +125,38 @@ tokens after each.
 
 ### Arm A — pure agent (shell access)
 
-Disable the AAP MCP server. In Cursor, **Settings** (⌘ + ,) → **MCP**, toggle
-the AAP server off. Use the Arm A rule (`arm-a-shell.mdc.bak` → `assistant.mdc`).
-New chat in the empty folder. Run all five requests without starting a new chat.
+1. Cursor **Settings** (⌘ + ,) → **MCP** → toggle the AAP server **off**.
+2. Copy `cursor-rules/arm-a-shell.mdc` to `~/bench-test/.cursor/rules/assistant.mdc`.
+3. Restart Cursor, open a **new** chat in `~/bench-test`.
+4. Send all five requests in that chat. Do not start a new chat between them.
 
 ### Arm B — agent + AAP MCP
 
-Re-enable MCP. Scope it to job-management tools (list/launch templates, retrieve
-jobs). Use the Arm B rule (`arm-b-aap.mdc.bak` → `assistant.mdc`). New chat,
-same five requests.
+1. Toggle the AAP MCP server **on**. Point it at `/mcp/job_management` (not
+   `/mcp`). In the MCP tool list, keep only:
+   `job_templates_list`, `job_templates_launch_retrieve`,
+   `job_templates_launch_create`, `jobs_retrieve`, `jobs_stdout_retrieve`.
+2. Copy `cursor-rules/arm-b-aap.mdc` to `~/bench-test/.cursor/rules/assistant.mdc`.
+3. Restart Cursor, open a **new** chat in `~/bench-test`.
+4. Same five requests, same chat.
 
 On success the agent should read job `status` and `artifacts.result`, not the
 full playbook stdout. Survey `memory_gb` is the string `"8"`, not the integer 8.
 
-### After each run
+### After each arm
 
 ```bash
-./scripts/verify.sh <instance-id>
-./scripts/cleanup.sh
+./scripts/verify.sh <instance-id>   # after request 1
+./scripts/cleanup.sh                # after the session, even if it failed
 ```
 
 Sandboxes are tagged with `ttl_days` but are not auto-terminated in this demo.
 `cleanup.sh` is the safety net.
+
+### After you have numbers
+
+Paste conversation tokens for requests 1–5 into `widget/context-growth.html`
+(`CONFIG.steps[].a` and `.b`) and into the table in `article-draft.md`.
 
 ### A note on MCP token scoping
 
@@ -154,5 +190,6 @@ template list will be larger than expected.
 | `aap/cac/` | Configuration-as-code for the 20 templates |
 | `playbooks/` | Five real playbooks + stubs |
 | `scripts/` | Verification and AWS cleanup |
-| `widget/` | Embeddable interactive for the article |
+| `cursor-rules/` | Arm A / Arm B Cursor rules to copy into the empty test folder |
+| `widget/` | Embeddable session chart for the article |
 | `article-draft.md` | The write-up with `[[PLACEHOLDER]]` figures |
