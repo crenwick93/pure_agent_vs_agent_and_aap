@@ -23,7 +23,7 @@
 
   vars:
     aws_region: "{{ lookup('env', 'AWS_REGION') | default('eu-west-1', true) }}"
-    ssh_key_name: "{{ lookup('env', 'SSH_KEY_NAME') | default('aap-token-bench', true) }}"
+    ssh_key_name: "{{ lookup('env', 'SSH_KEY_NAME') | default('agent_test', true) }}"
     dev_cidr: "{{ lookup('env', 'DEV_CIDR') | default('0.0.0.0/0', true) }}"
     cmdb_path: "{{ lookup('env', 'CMDB_PATH') | default('/tmp/cmdb.json', true) }}"
 
