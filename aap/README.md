@@ -24,17 +24,19 @@ cp .env.example .env
 - **Inventory**: AWS EC2 dynamic inventory filtered by `benchmark=aap-token-bench`
 - **20 job templates** with model-readable descriptions and typed surveys
 
+Five of those templates have real playbooks: Provision Dev Sandbox, Open
+Firewall Port, Check Sandbox Health, Restart App Services, Tail App Logs. The
+other 15 are placeholders so catalog search is still a 20-item problem. The
+session test only launches the five real ones.
+
 ## Templates
 
 20 templates. That number is a scoped developer catalog, not a claim about a
 typical estate, and the article should say so.
 
-Only `provision-dev-sandbox` has a real playbook behind it — it actually
-provisions an EC2 instance. The other 19 use the Demo Project's
-`hello_world.yml` as a placeholder. They exist purely to fill out the catalog
-so the agent has to read 20 descriptions and choose the right one, which is
-what happens in a real estate. Without them, template selection is a trivial
-lookup and the token cost of the catalog disappears from the measurement.
+Only five templates have real playbooks. The other 15 use `playbooks/placeholder.yml`.
+They exist so the agent has to search a 20-item catalog. Without them, template
+selection is a trivial lookup and the catalog tax disappears from the measurement.
 
 ```
 provision-dev-sandbox      extend-sandbox-ttl        teardown-sandbox

@@ -1,0 +1,36 @@
+---
+# Open Firewall Port — add one inbound TCP rule to a sandbox security group.
+#
+# Survey: instance_id, port, source_cidr
+
+- name: Open firewall port
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    aws_region: "{{ lookup('env', 'AWS_REGION') | default('eu-west-1', true) }}"
+
+  tasks:
+    - name: Look up sandbox
+      ansible.builtin.include_tasks: lookup_sandbox.yml
+
+    - name: Add inbound TCP rule
+      amazon.aws.ec2_security_group:
+        group_id: "{{ sg_id }}"
+        region: "{{ aws_region }}"
+        purge_rules: false
+        rules:
+          - proto: tcp
+            from_port: "{{ port | int }}"
+            to_port: "{{ port | int }}"
+            cidr_ip: "{{ source_cidr }}"
+
+    - name: Result
+      ansible.builtin.set_stats:
+        data:
+          result: "Opened TCP {{ port }} from {{ source_cidr }} on {{ sg_id }} ({{ instance_id }})"
+
+    - name: Done
+      ansible.builtin.debug:
+        msg: "Opened TCP {{ port }} from {{ source_cidr }} on {{ sg_id }}"

@@ -72,54 +72,55 @@ organization.
 
 ## Running the test
 
-Both arms use the same prompt. Describe the end state — never mention Ansible,
-AAP, or job templates:
+The unit of work is a **session**: five requests in the **same chat**. A
+developer does not provision and leave. They keep asking. Record **conversation
+tokens** after each request (Context Usage panel). Ignore the ~13K of Cursor
+tool definitions — both arms pay that.
 
-> I need a RHEL 10 sandbox in eu-west-1 for the payments team with 8 GB of
-> RAM. Install PostgreSQL, harden SSH, and tag it for teardown after 7 days.
+Never mention Ansible, AAP, or job templates.
 
 **Important: run both tests from an empty folder, not from this repo.** If the
-agent can see the playbooks, vars files, or this README, it has the answer
-before it starts. Open Cursor in an empty directory (e.g. `mkdir ~/bench-test
-&& cd ~/bench-test`) so each agent starts with nothing but the one-liner and
-its tools.
+agent can see the playbooks, it has the answer before it starts.
+
+### The five requests
+
+Send these one at a time. Wait until each finishes. Screenshot conversation
+tokens after each.
+
+1. > I need a RHEL 10 sandbox in eu-west-1 for the payments team with 8 GB of RAM. Install PostgreSQL, harden SSH, and tag it for teardown after 7 days.
+
+2. > Open port 8080 from my current public IP.
+
+3. > Check the sandbox is healthy.
+
+4. > Restart PostgreSQL.
+
+5. > Show me the last 50 lines of the PostgreSQL log.
 
 ### Arm A — pure agent (shell access)
 
-Disable the AAP MCP server so the agent only has shell tools. In Cursor, open
-**Settings** (⌘ + ,) → **MCP**, find the AAP server, and toggle it off. Open
-a new Cursor chat in the empty folder. Give it the prompt and let it work. It will provision the instance, SSH in to configure it, install
-packages, harden SSH, set up the security group, and register in the CMDB —
-all step by step.
-
-When it finishes, open the **Context Usage** panel at the bottom of the chat
-and screenshot the token breakdown. Record: total context, conversation
-tokens, turns, and tool calls.
+Disable the AAP MCP server. In Cursor, **Settings** (⌘ + ,) → **MCP**, toggle
+the AAP server off. Use the Arm A rule (`arm-a-shell.mdc.bak` → `assistant.mdc`).
+New chat in the empty folder. Run all five requests without starting a new chat.
 
 ### Arm B — agent + AAP MCP
 
-Re-enable the AAP MCP server. Open a new Cursor chat in the same empty folder.
-Give it the same prompt. The agent will list available templates, pick
-Provision Dev Sandbox, fill in the survey variables, launch the job, and read
-the status.
+Re-enable MCP. Scope it to job-management tools (list/launch templates, retrieve
+jobs). Use the Arm B rule (`arm-b-aap.mdc.bak` → `assistant.mdc`). New chat,
+same five requests.
 
-Screenshot the Context Usage panel again. Record the same metrics.
+On success the agent should read job `status` and `artifacts.result`, not the
+full playbook stdout. Survey `memory_gb` is the string `"8"`, not the integer 8.
 
 ### After each run
 
 ```bash
-# Verify the sandbox meets all six conditions
 ./scripts/verify.sh <instance-id>
-
-# Clean up — always run this, even if the test failed
 ./scripts/cleanup.sh
 ```
 
-Sandboxes are tagged with `ttl_days` but are not automatically terminated in
-this demo. In production, a scheduled AAP workflow (using the
-`teardown-sandbox` template in the catalog) would sweep instances past their
-TTL and terminate them. For this demo, `cleanup.sh` is the safety net — run it
-after every test.
+Sandboxes are tagged with `ttl_days` but are not auto-terminated in this demo.
+`cleanup.sh` is the safety net.
 
 ### A note on MCP token scoping
 
@@ -140,9 +141,9 @@ template list will be larger than expected.
 
 | Metric | Arm A (shell) | Arm B (AAP MCP) |
 |---|---|---|
-| Turns | ~14 | ~4 |
-| Tool calls | ~14 | ~3 |
-| Context growth | Superlinear (command output accumulates) | Flat (playbook output stays in controller) |
+| Conversation after request 1 | higher or lower — measure it | catalog tax is front-loaded |
+| Conversation after request 5 | grows with stdout | grows with status + artifacts |
+| Crossover | request number where A overtakes B | the figure the article plots |
 | Credential exposure | Agent holds AWS keys | Controller holds credentials |
 
 ## Layout
@@ -151,7 +152,7 @@ template list will be larger than expected.
 |---|---|
 | `SPEC.md` | Design, rules, pitfalls |
 | `aap/cac/` | Configuration-as-code for the 20 templates |
-| `playbooks/` | The real provision playbook |
+| `playbooks/` | Five real playbooks + stubs |
 | `scripts/` | Verification and AWS cleanup |
 | `widget/` | Embeddable interactive for the article |
 | `article-draft.md` | The write-up with `[[PLACEHOLDER]]` figures |

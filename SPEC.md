@@ -41,22 +41,31 @@ footnote.
 
 ## The task
 
-A developer types this into Cursor:
+The unit of work is a **developer session**, not a single provision. A
+developer does not type one request and close the chat. They provision, then
+open a port, then check health, then restart a service, then read a log. Record
+**conversation tokens after each request in the same chat**. The headline
+figure is the crossover: the request number where the shell agent's cumulative
+conversation tokens overtake the AAP agent's.
 
-> I need a RHEL 9 sandbox for the payments team with Postgres 16 and 8 GB of
-> RAM. Tear it down after a week.
+Request 1:
 
-Delivered means all of the following are true on the instance:
+> I need a RHEL 10 sandbox in eu-west-1 for the payments team with 8 GB of RAM.
+> Install PostgreSQL, harden SSH, and tag it for teardown after 7 days.
 
-1. Running RHEL 9, instance type with at least 8 GB RAM
-2. PostgreSQL 16 installed, enabled and running
-3. Security group permits SSH and Postgres from the developer CIDR only
-4. Tagged `team=payments`, `ttl_days=7`, `managed_by=<arm>`
-5. Registered in the CMDB stub (a JSON file or an HTTP endpoint, your choice)
-6. Password auth and root SSH login disabled
+Then, in the **same chat**, send these follow-ups one at a time. Screenshot
+Context Usage (conversation tokens) after each:
 
-These are checked by `scripts/verify.sh`, which runs after both arms and knows
-nothing about how the state was reached.
+2. Open port 8080 from my current public IP.
+3. Check the sandbox is healthy.
+4. Restart PostgreSQL.
+5. Show me the last 50 lines of the PostgreSQL log.
+
+Do not mention Ansible, AAP, or job templates in any of the five messages.
+
+Request 1 still has to pass `scripts/verify.sh`. Requests 2–5 are like-for-like
+because five job templates have real playbooks. The other 15 templates stay as
+catalog noise so discovery is still a 20-item problem.
 
 ## Non-negotiable design rules
 
@@ -96,12 +105,11 @@ Violating any of these makes the numbers worthless. Do not "simplify" past them.
 
 ## Measurement
 
-Per episode, record: input tokens, output tokens, cache read/write tokens, turn
-count, tool call count, wall clock, verification pass/fail, and the fixed token
-cost of the tool definitions alone (via `count_tokens` with and without tools).
+Per request in the session, record conversation tokens from Cursor's Context
+Usage panel (not the 13K of IDE tool definitions — both arms pay that). Also
+record turns, tool calls, and whether verification passed after request 1.
 
-Report token counts as the primary result and money as derived, with the rate
-stated. Token prices fall; token counts do not.
+The plot is conversation tokens vs request number. Publish the crossover.
 
 ## Arm A tool surface
 
@@ -133,10 +141,9 @@ where possible:
 - **20 job templates**, each with a description written for a model to read and
   a survey defining typed variables. 20 is a scoped developer catalog, not a
   claim about a typical estate. Say so in the article.
-- One of them, `provision-dev-sandbox`, actually provisions EC2 via
-  `amazon.aws`. The other 19 are realistic neighbours so the agent has a genuine
-  selection problem: `refresh-db-from-prod`, `rotate-dev-credentials`,
-  `extend-sandbox-ttl`, `teardown-sandbox`, and so on.
+- **Five real playbooks**: provision, open-firewall-port, check-sandbox-health,
+  restart-app-services, tail-app-logs. The other 15 are realistic neighbours
+  so the agent has a genuine selection problem.
 - An AWS credential in the controller. **Arm B never sees it.**
 
 Template descriptions are a machine interface here, not documentation. "Builds

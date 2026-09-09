@@ -1,0 +1,38 @@
+---
+# Restart App Services — restart named systemd units and report active state.
+#
+# Survey: instance_id, services (comma-separated, e.g. postgresql)
+
+- name: Restart app services
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    aws_region: "{{ lookup('env', 'AWS_REGION') | default('eu-west-1', true) }}"
+    ssh_opts: "-o StrictHostKeyChecking=no -o ConnectTimeout=10"
+    _services: "{{ services | default('postgresql') }}"
+
+  tasks:
+    - name: Look up sandbox
+      ansible.builtin.include_tasks: lookup_sandbox.yml
+
+    - name: Restart services
+      ansible.builtin.command:
+        cmd: >-
+          ssh {{ ssh_opts }} ec2-user@{{ instance_ip }}
+          "set -e;
+           for s in {{ _services | replace(',', ' ') }}; do
+             sudo systemctl restart \"$s\";
+             echo \"$s=$(systemctl is-active \"$s\")\";
+           done"
+      register: restarted
+
+    - name: Result
+      ansible.builtin.set_stats:
+        data:
+          result: "{{ restarted.stdout }}"
+
+    - name: Done
+      ansible.builtin.debug:
+        msg: "{{ restarted.stdout_lines }}"

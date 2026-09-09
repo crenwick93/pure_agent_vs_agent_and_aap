@@ -1,29 +1,45 @@
 <div class="ctxw" id="ctxw">
   <div class="ctxw-prompt">
-    <span class="ctxw-who">Developer, in Cursor</span>
-    <p id="ctxw-ask">I need a RHEL 9 sandbox for the payments team with Postgres 16 and 8&nbsp;GB of RAM. Tear it down after a week.</p>
+    <span class="ctxw-who">Same Cursor chat — five requests, not one VM</span>
+    <p id="ctxw-ask">1. Provision a RHEL 10 sandbox with Postgres, SSH hardening, 7-day TTL<br>
+    2. Open port 8080 from my IP<br>
+    3. Check the sandbox is healthy<br>
+    4. Restart PostgreSQL<br>
+    5. Show the last 50 lines of the Postgres log</p>
   </div>
 
+  <svg class="ctxw-chart" id="ctxw-chart" viewBox="0 0 640 220" role="img" aria-label="Conversation tokens after each request">
+    <line x1="48" y1="16" x2="48" y2="176" stroke="currentColor" opacity=".2"/>
+    <line x1="48" y1="176" x2="620" y2="176" stroke="currentColor" opacity=".2"/>
+    <text x="8" y="20" class="ctxw-axis">k</text>
+    <polyline id="ctxw-line-a" fill="none" stroke="#a32d2d" stroke-width="2.5"/>
+    <polyline id="ctxw-line-b" fill="none" stroke="#185fa5" stroke-width="2.5"/>
+    <circle id="ctxw-dot-a" r="5" fill="#a32d2d"/>
+    <circle id="ctxw-dot-b" r="5" fill="#185fa5"/>
+    <g id="ctxw-labels"></g>
+  </svg>
+  <p class="ctxw-legend"><span class="ctxw-la">Shell agent</span> <span class="ctxw-lb">Agent + AAP</span></p>
+
   <div class="ctxw-head">
-    <button type="button" id="ctxw-prev" aria-label="Previous turn">&larr;</button>
-    <input type="range" id="ctxw-turn" min="1" max="14" step="1" value="1" aria-label="Turn">
-    <button type="button" id="ctxw-next" aria-label="Next turn">&rarr;</button>
+    <button type="button" id="ctxw-prev" aria-label="Previous request">&larr;</button>
+    <input type="range" id="ctxw-turn" min="1" max="5" step="1" value="1" aria-label="Request">
+    <button type="button" id="ctxw-next" aria-label="Next request">&rarr;</button>
     <output class="ctxw-turnval" id="ctxw-turnval" for="ctxw-turn">1</output>
   </div>
 
   <div class="ctxw-cols">
     <section class="ctxw-col ctxw-a">
       <h3>Agent with a shell</h3>
-      <p class="ctxw-sub">Builds the sandbox itself</p>
+      <p class="ctxw-sub">Stdout stays in the chat</p>
       <p class="ctxw-num" id="ctxw-na">0</p>
-      <p class="ctxw-cap">tokens read so far</p>
+      <p class="ctxw-cap">conversation tokens so far</p>
       <div class="ctxw-log" id="ctxw-sa"></div>
     </section>
     <section class="ctxw-col ctxw-b">
       <h3>Agent calling AAP</h3>
-      <p class="ctxw-sub">Reads the catalogue, launches a job</p>
+      <p class="ctxw-sub">Catalog tax, then status</p>
       <p class="ctxw-num" id="ctxw-nb">0</p>
-      <p class="ctxw-cap">tokens read so far</p>
+      <p class="ctxw-cap">conversation tokens so far</p>
       <div class="ctxw-log" id="ctxw-sb"></div>
     </section>
   </div>
@@ -46,9 +62,15 @@
         --a:#f09595;--a-bg:#2e1a1a;--b:#85b7eb;--b-bg:#152838;}
 }
 .ctxw *{box-sizing:border-box}
-.ctxw-prompt{background:var(--panel);padding:.875rem 1rem;margin-bottom:1.5rem}
+.ctxw-prompt{background:var(--panel);padding:.875rem 1rem;margin-bottom:1rem}
 .ctxw-who{font-size:.6875rem;color:var(--ink3);letter-spacing:.04em;display:block;margin-bottom:.375rem}
-.ctxw-prompt p{margin:0;font-size:.9375rem;line-height:1.55}
+.ctxw-prompt p{margin:0;font-size:.875rem;line-height:1.55}
+.ctxw-chart{width:100%;height:auto;display:block;margin:0 0 .5rem;color:var(--ink2)}
+.ctxw-axis{font-size:11px;fill:currentColor}
+.ctxw-legend{font-size:.75rem;color:var(--ink3);margin:0 0 1rem}
+.ctxw-la::before,.ctxw-lb::before{content:"";display:inline-block;width:.75rem;height:.2rem;margin-right:.35rem;vertical-align:middle}
+.ctxw-la::before{background:var(--a)}.ctxw-lb::before{background:var(--b)}
+.ctxw-lb{margin-left:1rem}
 .ctxw-head{display:flex;align-items:center;gap:.625rem;margin-bottom:1.5rem}
 .ctxw-head button{font:inherit;font-size:.875rem;line-height:1;padding:.4rem .6rem;
   background:none;border:1px solid var(--rule);color:var(--ink);cursor:pointer}
@@ -57,7 +79,7 @@
 .ctxw-head input[type=range]{flex:1;accent-color:var(--ink);height:1.5rem;cursor:pointer}
 .ctxw-head :focus-visible{outline:2px solid var(--b);outline-offset:2px}
 .ctxw-turnval{font:500 .875rem/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  min-width:3.5rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink2)}
+  min-width:6.5rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink2)}
 .ctxw-cols{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
 @media (max-width:560px){.ctxw-cols{grid-template-columns:1fr;gap:2rem}}
 .ctxw-col h3{font-size:.9375rem;font-weight:500;margin:0 0 .125rem}
@@ -66,16 +88,12 @@
   margin:0;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .ctxw-a .ctxw-num{color:var(--a)} .ctxw-b .ctxw-num{color:var(--b)}
 .ctxw-cap{font-size:.75rem;color:var(--ink3);margin:.25rem 0 0}
-.ctxw-log{margin-top:1rem;display:flex;flex-direction:column;gap:3px;min-height:340px}
+.ctxw-log{margin-top:1rem;display:flex;flex-direction:column;gap:3px;min-height:120px}
 .ctxw-e{padding:.4rem .5rem;font:.6875rem/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 .ctxw-a .ctxw-e{background:var(--a-bg);color:var(--a)}
 .ctxw-b .ctxw-e{background:var(--b-bg);color:var(--b)}
 .ctxw-e b{font-weight:500;display:block}
 .ctxw-e span{display:block;opacity:.75;margin-top:.15rem;white-space:pre-wrap;word-break:break-word}
-.ctxw-e i{float:right;font-style:normal;opacity:.6;font-size:.625rem;margin-left:.4rem}
-.ctxw-e.big{border-left:3px solid currentColor}
-.ctxw-done{font-size:.75rem;color:var(--ink3);border:1px dashed var(--rule);
-  padding:.5rem;line-height:1.45;margin-top:.25rem}
 .ctxw-note{font-size:.875rem;line-height:1.6;color:var(--ink2);
   margin:1.75rem 0 0;padding-top:1rem;border-top:1px solid var(--rule);min-height:3.2em}
 .ctxw-src{font-size:.75rem;color:var(--ink3);margin:.5rem 0 0}
@@ -84,30 +102,23 @@
 <script>
 (function(){
 var CONFIG = {
-  source: "Modelled, not measured. Replace with harness output before publishing.",
-  toolDefsA: 380,
-  toolDefsB: 2650,
-  a: [
-    {t:"user", d:"I need a RHEL 9 sandbox for the payments team\u2026", k:55},
-    {t:"run_command \u2014 virsh list --all", d:"finds a hypervisor with capacity", k:180},
-    {t:"run_command \u2014 virt-install", d:"--name dev-sbx-0142 --memory 8192 --vcpus 4\n  --location rhel9.iso --disk size=40\n[\u2026 boot log, 60 lines]", k:940},
-    {t:"run_command \u2014 ssh probe", d:"waits for sshd, retries twice", k:320},
-    {t:"run_command \u2014 subscription-manager register", d:"needs a credential in context to do this", k:410},
-    {t:"run_command \u2014 dnf module enable postgresql:16", d:"Enabling module streams:\n  postgresql   16", k:380},
-    {t:"run_command \u2014 dnf install postgresql-server", d:"Dependencies resolved.\n[\u2026 full transaction table, 94 packages]", k:2180, big:true},
-    {t:"run_command \u2014 postgresql-setup --initdb", d:"Initializing database \u2026 OK", k:290},
-    {t:"run_command \u2014 systemctl enable --now postgresql", d:"Created symlink /etc/systemd/system\u2026", k:240},
-    {t:"run_command \u2014 firewall-cmd", d:"--add-service=postgresql --permanent", k:260},
-    {t:"run_command \u2014 tag for teardown", d:"writes a cron job it invented itself", k:350},
-    {t:"run_command \u2014 register in CMDB", d:"curl POST, guesses the payload shape", k:300},
-    {t:"run_command \u2014 verify", d:"re-checks memory, service, port, tag", k:620},
-    {t:"assistant", d:"Sandbox dev-sbx-0142 is ready.", k:120}
-  ],
-  b: [
-    {t:"user", d:"I need a RHEL 9 sandbox for the payments team\u2026", k:55},
-    {t:"list_job_templates \u2014 Developer Self-Service", d:"20 templates, each with description and survey:\n  provision-dev-sandbox\n    RHEL VM for dev/test. Vars: rhel_version,\n    memory_gb, packages[], team, ttl_days\n  refresh-db-from-prod\n  rotate-dev-credentials\n  [\u2026 17 more]", k:3240, big:true},
-    {t:"launch_job \u2014 provision-dev-sandbox", d:"{rhel_version: 9, memory_gb: 8,\n packages: [postgresql16], team: payments,\n ttl_days: 7}", k:260},
-    {t:"get_job_status \u2014 4471", d:"successful. dev-sbx-0142", k:190}
+  source: "Schematic until you paste measured conversation tokens from the five-request session. Request 1 uses lab ballpark (shell ~9K, AAP ~28K). Follow-ons are modelled: shell stdout compounds, AAP adds status + artifacts.",
+  steps: [
+    {label:"1 Provision", a:9400, b:28000,
+      ad:"AMI lookup, SG, run-instances, dnf, sshd, tags. Output stays in the chat.",
+      bd:"Search 20 templates, launch, poll status. Catalog tax is front-loaded."},
+    {label:"2 Open port", a:17400, b:32000,
+      ad:"describe-instances + authorize-security-group-ingress JSON.",
+      bd:"Search, launch Open Firewall Port, status + short artifact."},
+    {label:"3 Health", a:26800, b:35500,
+      ad:"ssh df/free/systemctl. Previous dnf output is still in context.",
+      bd:"Launch Check Sandbox Health. Compact artifact, no playbook dump."},
+    {label:"4 Restart", a:37200, b:39000,
+      ad:"ssh systemctl restart. History keeps growing.",
+      bd:"Launch Restart App Services. Status only."},
+    {label:"5 Tail logs", a:51000, b:43000,
+      ad:"journalctl lines land in the chat and never leave.",
+      bd:"Launch Tail App Logs. Fifty lines in artifacts, not the Ansible log."}
   ]
 };
 
@@ -116,43 +127,49 @@ var S=document.getElementById('ctxw-turn'),TV=document.getElementById('ctxw-turn
     PV=document.getElementById('ctxw-prev'),NX=document.getElementById('ctxw-next'),
     NA=document.getElementById('ctxw-na'),NB=document.getElementById('ctxw-nb'),
     SA=document.getElementById('ctxw-sa'),SB=document.getElementById('ctxw-sb'),
-    NOTE=document.getElementById('ctxw-note'),SRC=document.getElementById('ctxw-src');
+    NOTE=document.getElementById('ctxw-note'),SRC=document.getElementById('ctxw-src'),
+    LA=document.getElementById('ctxw-line-a'),LB=document.getElementById('ctxw-line-b'),
+    DA=document.getElementById('ctxw-dot-a'),DB=document.getElementById('ctxw-dot-b'),
+    LG=document.getElementById('ctxw-labels');
 
-var MAX=CONFIG.a.length; S.max=MAX; SRC.textContent=CONFIG.source;
+var MAX=CONFIG.steps.length; S.max=MAX; SRC.textContent=CONFIG.source;
+var X0=48,X1=620,Y0=16,Y1=176;
+var ymax=Math.max.apply(null,CONFIG.steps.map(function(s){return Math.max(s.a,s.b);}))*1.08;
 
-function cum(steps,defs,n){
-  var total=0, ctx=0, m=Math.min(n,steps.length);
-  for(var i=0;i<m;i++){ ctx+=steps[i].k; total+=defs+ctx; }
-  return total;
+function x(i){return X0+(X1-X0)*(i/(MAX-1));}
+function y(v){return Y1-(Y1-Y0)*(v/ymax);}
+function pts(key,n){
+  var p=[];
+  for(var i=0;i<n;i++) p.push(x(i)+','+y(CONFIG.steps[i][key]));
+  return p.join(' ');
 }
 function esc(s){return String(s).replace(/[&<>]/g,function(c){
   return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
-function ent(s){
-  return '<div class="ctxw-e'+(s.big?' big':'')+'"><i>'+s.k.toLocaleString('en-GB')+
-    '</i><b>'+esc(s.t)+'</b><span>'+esc(s.d)+'</span></div>';
-}
-function render(el,steps,n,doneMsg){
-  var h='',m=Math.min(n,steps.length);
-  for(var i=0;i<m;i++) h+=ent(steps[i]);
-  if(n>=steps.length && doneMsg) h+='<div class="ctxw-done">'+doneMsg+'</div>';
-  el.innerHTML=h;
-}
+
+(function axes(){
+  var h='';
+  for(var i=0;i<MAX;i++){
+    h+='<text x="'+x(i)+'" y="196" text-anchor="middle" class="ctxw-axis">'+CONFIG.steps[i].label.replace(/^\d+\s/,'')+'</text>';
+  }
+  LG.innerHTML=h;
+})();
+
 function draw(n){
-  TV.textContent='turn '+n;
+  TV.textContent='request '+n;
   PV.disabled=(n<=1); NX.disabled=(n>=MAX);
-  var a=cum(CONFIG.a,CONFIG.toolDefsA,n), b=cum(CONFIG.b,CONFIG.toolDefsB,n);
-  NA.textContent=a.toLocaleString('en-GB');
-  NB.textContent=b.toLocaleString('en-GB');
-  render(SA,CONFIG.a,n,'Done at turn '+CONFIG.a.length+'.');
-  render(SB,CONFIG.b,n,'Done at turn '+CONFIG.b.length+'. Nothing further enters the context.');
-  if(a<b){
-    NOTE.textContent='The shell agent is still ahead. Reading the catalogue is the single '
-      +'largest thing AAP puts in context, and it is paid for on every turn after. Scope the '
-      +'templates a token can see and that cost falls with it.';
+  var s=CONFIG.steps[n-1];
+  NA.textContent=s.a.toLocaleString('en-GB');
+  NB.textContent=s.b.toLocaleString('en-GB');
+  SA.innerHTML='<div class="ctxw-e'+(n===1?' big':'')+'"><b>'+esc(s.label)+'</b><span>'+esc(s.ad)+'</span></div>';
+  SB.innerHTML='<div class="ctxw-e'+(n===1?' big':'')+'"><b>'+esc(s.label)+'</b><span>'+esc(s.bd)+'</span></div>';
+  LA.setAttribute('points', pts('a', n));
+  LB.setAttribute('points', pts('b', n));
+  DA.setAttribute('cx', x(n-1)); DA.setAttribute('cy', y(s.a));
+  DB.setAttribute('cx', x(n-1)); DB.setAttribute('cy', y(s.b));
+  if(s.a<s.b){
+    NOTE.textContent='Still before the inflection. The shell agent is cheaper on this request because the AAP catalog tax is sitting in context. That tax does not grow with stdout.';
   } else {
-    NOTE.textContent='The shell agent has now read '+(a/Math.max(b,1)).toFixed(1)
-      +' times as much. It re-reads every earlier command output on every later turn, so the '
-      +'gap widens whether or not anything goes wrong.';
+    NOTE.textContent='Past the inflection. The shell agent has re-read every earlier command. The AAP agent added a status. The gap widens on every later ask in this chat.';
   }
 }
 S.addEventListener('input',function(e){draw(+e.target.value);});
@@ -160,5 +177,4 @@ PV.addEventListener('click',function(){S.value=Math.max(1,+S.value-1);draw(+S.va
 NX.addEventListener('click',function(){S.value=Math.min(MAX,+S.value+1);draw(+S.value);});
 draw(1);
 })();
-
 </script>

@@ -1,8 +1,8 @@
 ---
-# Placeholder playbook for the 19 stub templates in the Developer Self-Service
-# catalog. These templates exist so the agent has a realistic selection problem
-# (20 descriptions to read and choose from). Only provision-dev-sandbox has a
-# real playbook behind it.
+# Placeholder playbook for the stub templates in the Developer Self-Service
+# catalog. Five templates have real playbooks (provision, open port, health,
+# restart, tail logs). The rest exist so the agent has a 20-item selection
+# problem. The session test only launches the five real ones.
 - name: Placeholder
   hosts: localhost
   connection: local

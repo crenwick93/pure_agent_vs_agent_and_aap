@@ -1,0 +1,25 @@
+---
+# Shared by the four follow-on sandbox playbooks. Resolves instance_id to a
+# public IP and security group via the AWS API so we do not depend on
+# inventory sync having run.
+- name: Look up sandbox instance
+  amazon.aws.ec2_instance_info:
+    region: "{{ aws_region }}"
+    instance_ids:
+      - "{{ instance_id }}"
+  register: sandbox_lookup
+
+- name: Fail if the instance is not running
+  ansible.builtin.assert:
+    that:
+      - sandbox_lookup.instances | length > 0
+      - sandbox_lookup.instances[0].state.name == "running"
+      - sandbox_lookup.instances[0].public_ip_address | length > 0
+    fail_msg: >-
+      No running instance with a public IP for {{ instance_id }}
+      in {{ aws_region }}.
+
+- name: Record sandbox connection facts
+  ansible.builtin.set_fact:
+    instance_ip: "{{ sandbox_lookup.instances[0].public_ip_address }}"
+    sg_id: "{{ sandbox_lookup.instances[0].security_groups[0].group_id }}"

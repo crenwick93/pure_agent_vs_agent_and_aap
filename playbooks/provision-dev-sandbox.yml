@@ -2,8 +2,9 @@
 # provision-dev-sandbox.yml — Create and configure a RHEL developer sandbox on AWS.
 #
 # This is the real playbook behind the "Provision Dev Sandbox" job template.
-# The other 19 templates in the catalog are placeholders — they exist so the
-# AI agent has a genuine selection problem (20 options to choose from).
+# Four follow-on templates are also real (open port, health, restart, tail
+# logs) so a multi-request session is like-for-like. The remaining 15 are
+# placeholders so the agent still has a 20-item catalog to search.
 #
 # Survey variables (passed via AAP job template survey):
 #   team          (text)         — team requesting the sandbox

@@ -1,0 +1,34 @@
+---
+# Check Sandbox Health — compact status for SSH, disk, memory, and services.
+# Output is kept short on purpose so it can live in job artifacts instead of
+# a full playbook stdout dump.
+#
+# Survey: instance_id
+
+- name: Check sandbox health
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    aws_region: "{{ lookup('env', 'AWS_REGION') | default('eu-west-1', true) }}"
+    ssh_opts: "-o StrictHostKeyChecking=no -o ConnectTimeout=10"
+
+  tasks:
+    - name: Look up sandbox
+      ansible.builtin.include_tasks: lookup_sandbox.yml
+
+    - name: Collect compact health
+      ansible.builtin.command:
+        cmd: ssh {{ ssh_opts }} ec2-user@{{ instance_ip }} "uname -r; df -h / | tail -1; free -m | head -2; uptime; systemctl is-active sshd; systemctl is-active postgresql || true"
+      register: health
+      changed_when: false
+
+    - name: Result
+      ansible.builtin.set_stats:
+        data:
+          result: "{{ health.stdout }}"
+
+    - name: Done
+      ansible.builtin.debug:
+        msg: "{{ health.stdout_lines }}"

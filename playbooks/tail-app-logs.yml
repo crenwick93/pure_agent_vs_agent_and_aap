@@ -1,0 +1,42 @@
+---
+# Tail App Logs — last N lines of a journald unit or file.
+# This is the one follow-on job whose useful result is the log text. Keep
+# line_count small (session test uses 50) so artifacts stay cheap.
+#
+# Survey: instance_id, log_source (default postgresql), line_count (default 100)
+
+- name: Tail app logs
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    aws_region: "{{ lookup('env', 'AWS_REGION') | default('eu-west-1', true) }}"
+    ssh_opts: "-o StrictHostKeyChecking=no -o ConnectTimeout=10"
+    _log_source: "{{ log_source | default('postgresql') }}"
+    _line_count: "{{ line_count | default(50) }}"
+
+  tasks:
+    - name: Look up sandbox
+      ansible.builtin.include_tasks: lookup_sandbox.yml
+
+    - name: Tail journald unit or file
+      ansible.builtin.command:
+        cmd: >-
+          ssh {{ ssh_opts }} ec2-user@{{ instance_ip }}
+          "if echo {{ _log_source }} | grep -q '^/'; then
+             sudo tail -n {{ _line_count }} {{ _log_source }};
+           else
+             sudo journalctl -u {{ _log_source }} -n {{ _line_count }} --no-pager;
+           fi"
+      register: tailed
+      changed_when: false
+
+    - name: Result
+      ansible.builtin.set_stats:
+        data:
+          result: "{{ tailed.stdout }}"
+
+    - name: Done
+      ansible.builtin.debug:
+        msg: "{{ tailed.stdout_lines }}"

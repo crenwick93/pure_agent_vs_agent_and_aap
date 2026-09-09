@@ -1,107 +1,95 @@
 # What an AI agent costs when it does the work itself versus handing it to automation
 
-The MCP server for Red Hat Ansible Automation Platform became generally available in June 2026. It lets an AI tool such as Cursor or Claude query your automation controller and launch jobs from a chat prompt. One of the stated reasons to route agents through the platform is cost — specifically choosing when to spend tokens on reasoning and when to hand the work to automation that already exists.
+The MCP server for Red Hat Ansible Automation Platform became generally available in June 2026. It lets an AI tool such as Cursor query your automation controller and launch jobs from a chat prompt. One of the stated reasons to route agents through the platform is token cost.
 
-I wanted a number behind that, so I ran the same request two ways and measured what it did to the context window.
+I wanted a number behind that, so I ran the same developer session two ways and measured what happened to the context window **after each request**.
 
-A note on scope. These figures come from my lab, with my catalog and my playbooks. Your estate will produce different ones. The method is the useful part, and the repo is on GitHub if you want to point it at your own controller.
+A note on scope. These figures come from my lab. Your estate will differ. The method is the useful part, and the repo is on GitHub if you want to point it at your own controller.
 
-## The request
+## The request is a session, not a VM
 
-A developer needs a sandbox. In Cursor, they type:
+A developer does not type one line and close the chat. They provision a sandbox, then open a port, then check it is healthy, then restart a service, then read a log. That is one conversation. Every earlier tool result is still sitting in context when they ask the next thing.
 
-> I need a RHEL 10 sandbox in eu-west-1 for the payments team with 8 GB of RAM. Install PostgreSQL, harden SSH, and tag it for teardown after 7 days.
+I sent five messages in the same Cursor chat. Never named Ansible, AAP, or job templates.
 
-The host counts as delivered when it is running and reachable.
+1. I need a RHEL 10 sandbox in eu-west-1 for the payments team with 8 GB of RAM. Install PostgreSQL, harden SSH, and tag it for teardown after 7 days.
+2. Open port 8080 from my current public IP.
+3. Check the sandbox is healthy.
+4. Restart PostgreSQL.
+5. Show me the last 50 lines of the PostgreSQL log.
+
+The number that matters is **conversation tokens after each request**. Cursor's panel also shows ~13K of IDE tool definitions. Both arms pay that. I ignore it.
 
 ## Two ways to answer it
 
-**Arm A — the agent does it itself.** It gets shell access: AWS CLI, SSH, and standard Linux tools. It figures out which AMI to use, how to configure the security group, what packages to install, how to harden SSH, and how to tag the instance for teardown. Every command it runs produces output that goes into the context window. The `dnf install` transaction table, the AWS CLI JSON responses, the SSH session output — all of it becomes tokens the model has to carry for the rest of the conversation.
+**Arm A — the agent does it itself.** Shell, AWS CLI, SSH. Every command's stdout lands in the chat and is paid for again on the next turn. `dnf install` is a transaction table. `aws ec2 run-instances` is a JSON blob. `journalctl` is log lines. None of it leaves.
 
-**Arm B — the agent delegates.** It gets the AAP MCP server and nothing else. It can list job templates, read their descriptions, launch one, and check the result. In my lab those templates sit in a single organization with 20 of them, each with a description and a survey. The agent reads the catalog, picks the right template, fills in the survey variables from the request, and launches. The playbook runs server-side. The agent never sees the Ansible output — it gets back a status.
+**Arm B — the agent delegates.** AAP MCP only. It searches a 20-template catalog, launches a job, and reads `status` plus a short `artifacts.result`. Playbook output stays in the controller. The catalog is rent: you pay it up front, on request one.
 
-Same model, same prompt wording, same definition of done. The tool surface is the only thing that changes.
+Same model, same five messages, same AWS account. Only the tool surface changes.
 
-## Why this matters
+## The shape you should see
 
-No real team would give an AI agent raw shell access to build production infrastructure — and they shouldn't. The comparison isolates one variable: **what happens to the context window when the agent has to execute steps itself versus delegating to automation that already exists.**
+Request one is the worst case for automation. The shell agent runs a handful of CLI commands. The AAP agent reads a catalog and speaks JSON-RPC. In my lab the shell agent was cheaper on that first call. That is not a failure of the method. It is the fixed cost.
 
-The raw shell arm is not how you would ship this. But measuring it tells you something important about where tokens actually go — and it leads to a conclusion that matters for anyone building AI into their operations: the agent cannot scale without automation behind it. Not because it is not clever enough, but because the context window is finite and every command output eats into it.
+What you want is the inflection: the request where the shell line crosses above AAP and keeps climbing, because stdout compounds and job status does not.
 
-An agent that does everything itself hits the ceiling fast. An agent that delegates to tested, governed automation stays small, cheap, and predictable. That is not a nice-to-have. It is a constraint of how these models work.
+```mermaid
+xychart-beta
+    title "Conversation tokens after each request (same chat)"
+    x-axis ["1 Provision", "2 Open port", "3 Health", "4 Restart", "5 Tail logs"]
+    y-axis "Conversation tokens (thousands)" 0 --> 60
+    line "Shell agent" [9, 18, 28, 39, 52]
+    line "Agent + AAP" [28, 32, 36, 39, 43]
+```
+
+[[FIGURE-CROSSOVER]] Replace the schematic line with measured conversation tokens from the session. The crossover is the published result, not request one's total context. If the lines never cross by request five, print that. Do not pad the VM until they do.
+
+The widget in `widget/context-growth.html` is the same chart as a slider: one tick per request, not per hidden tool call.
 
 ## Why 20 templates?
 
-A mid-size IT self-service catalog typically has 40–60 items across all of IT. A single developer team's view, scoped by RBAC, is closer to 15–25: provision a sandbox, refresh a database, rotate credentials, open a firewall port, and so on. Twenty is a realistic scoped catalog, not a claim about a typical estate. If anything it understates what a production controller would expose, which means the token savings in the real world would be larger — more templates to read, but the agent still only launches one.
+A scoped developer catalog is 15–25 items. Twenty is realistic, not a claim about a typical estate. Five of those templates have real playbooks so requests 2–5 are like-for-like. The other 15 exist so search is still a genuine selection problem.
 
-NOTE: Do not mention Ansible, AAP, or job templates in the prompt. If you do, you have handed the second agent the answer and asked the first one to do something it has no route to. Describe the end state and let each agent work out how to get there.
+NOTE: Do not mention Ansible, AAP, or job templates in the prompts.
 
 ## What the shell agent does
 
-It works, and it takes a while. Roughly [[TURNS-A]] turns:
-
-```plaintext
-aws ec2 describe-images --filters "Name=name,Values=RHEL-9*" ...
-aws ec2 create-security-group ...
-aws ec2 run-instances --instance-type t3.large --image-id ami-... ...
-ssh ec2-user@... "sudo dnf install postgresql16-server"
-ssh ec2-user@... "sudo postgresql-setup --initdb"
-ssh ec2-user@... "sudo systemctl enable --now postgresql"
-ssh ec2-user@... "sudo sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config"
-```
-
-Two things stand out when you read the transcript.
-
-The `dnf install` step alone put [[TOKENS-DNF]] tokens into the context window. That is the transaction table, every dependency listed, every GPG key imported. Nobody chose to put it there. It arrived because the agent had to run the command to find out whether it worked, and the output came back attached.
-
-The agent also invented its own teardown mechanism. That is a reasonable thing to do and it is not what my template does, which matters if you ever need to explain to an auditor how sandboxes get removed. With the template, teardown is a known, tested, auditable process. With the shell agent, it is whatever the model decided at the time.
+It works. After request one it has AMI JSON, security-group JSON, `dnf` output, and sshd edits in context. Each follow-up appends more AWS CLI and SSH. By request five the log tail is still sitting there for every later turn, even if nobody asks again.
 
 ## What the AAP agent does
 
-[[TURNS-B]] turns. It lists the templates, picks one, launches it with variables taken from the request, and reads the result.
+Request one: search catalog, launch Provision Dev Sandbox (`memory_gb` is the string `"8"`), poll until `successful`, read a short artifact. Requests two to five: search, launch, status. It should not pull playbook stdout on success.
 
 ```plaintext
-job_templates_list()
-→ 20 templates, reads descriptions
-
-job_templates_launch_create(
-  id=48,
-  extra_vars={rhel_version: 9, memory_gb: 8,
-              packages: "postgresql16-server", team: "payments",
-              ttl_days: 7}
-)
-
-jobs_retrieve(id=...)
-→ status: successful
+job_templates_list(search="sandbox")
+job_templates_launch_create(...)
+jobs_retrieve(id=...)  → status, artifacts.result
 ```
-
-The playbook output never enters the conversation. The agent does not read several hundred lines of Ansible output to work out whether the job worked — it reads a status. It also never holds the AWS credential or the SSH key, because the controller runs the job and the controller owns the credentials.
 
 ## The numbers
 
-[[RUNS]] runs per arm, [[MODEL]] at temperature 0, prompt caching off, only verified runs counted.
+[[RUNS]] session runs per arm, [[MODEL]], prompt caching off. Conversation tokens only. Medians.
 
-| | Shell agent | AAP agent |
+| After request | Shell agent | AAP agent |
 |---|---|---|
-| Total context (median) | [[CONTEXT-A]] | [[CONTEXT-B]] |
-| Conversation tokens | [[CONV-A]] | [[CONV-B]] |
-| Tool definitions | [[TOOLS-A]] | [[TOOLS-B]] |
-| Turns | [[TURNS-A]] | [[TURNS-B]] |
-| Tool calls | [[CALLS-A]] | [[CALLS-B]] |
+| 1 Provision | [[CONV-A-1]] | [[CONV-B-1]] |
+| 2 Open port | [[CONV-A-2]] | [[CONV-B-2]] |
+| 3 Health | [[CONV-A-3]] | [[CONV-B-3]] |
+| 4 Restart | [[CONV-A-4]] | [[CONV-B-4]] |
+| 5 Tail logs | [[CONV-A-5]] | [[CONV-B-5]] |
+| Crossover | [[CROSSOVER]] | — |
 
-At [[RATE]] per million input tokens, that is [[COST-A]] against [[COST-B]] per sandbox.
+First-request totals including IDE tool definitions: [[CONTEXT-A-1]] vs [[CONTEXT-B-1]]. Those are not the comparison. They mix Cursor's tax with the thing being measured.
 
 ## Where the cost comes from
 
-The saving is not about AAP being faster. It is about what goes into the context window and what does not.
+The AAP agent pays a catalog and protocol tax once per session. The shell agent pays for evidence on every step, then pays to re-read it forever. One VM hides that. Five requests in one chat shows it.
 
-The shell agent's context grows with every command because every stdout and stderr is appended to the conversation. By the time it finishes, the conversation slice alone is [[CONV-A]] tokens. The AAP agent's conversation slice is [[CONV-B]] — it sent a few API calls and received structured responses.
-
-The AAP agent pays an upfront cost to read the catalog: 20 template descriptions and their surveys. That is real, and it is the single largest thing it puts in context. But it pays it once, and the templates are well under [[CATALOG-TOKENS]] tokens total. The shell agent overtakes that within [[CROSSOVER]] turns as its own command output accumulates.
-
-This is not a quirk of this particular task. It is a property of the architecture. Any task where the agent has to run commands and read their output will fill the context window at a rate that scales with the number of steps. Delegation to automation collapses those steps into a single tool call with a structured response. The longer the task, the wider the gap.
+This is not about AAP being faster. It is about which bytes re-enter the model.
 
 ## What I did not measure
+
 
 **Prompt caching.** It was off for both arms. Turn it on and the gap narrows, because the shell agent's growing history is a cacheable prefix within a session. Caching does not change the token count, only the price of the repeated part.
 
@@ -139,11 +127,11 @@ If you are building AI into operations — whether that is developer self-servic
 
 ## Practical advice
 
-- **Route long, procedural tasks to automation.** If the agent would need more than a few tool calls to complete it, there should be a template behind it.
-- **Keep the catalog scoped.** Twenty well-described templates is cheap to read. Four hundred is not, and you pay for it on every turn. Use RBAC to limit what the agent's token can see.
-- **Write descriptions for a model, not a person.** The agent picks from the description and the survey variables. "Builds a sandbox" tells it nothing about when to pick this over the four adjacent templates. Say what the template does, when to choose it, what it will not do, and what it needs.
-- **Route short and novel tasks to reasoning.** Not everything belongs in a template. The crossover point in this test was roughly [[CROSSOVER]] turns. Below that, the agent working alone is cheaper.
-- **Measure your own estate.** The repo is at [[REPO-URL]]. Point it at your controller and see where your numbers land.
+- **Measure a session, not a VM.** The first call is the catalog tax. The crossover is the result.
+- **Keep the catalog scoped.** Twenty templates is cheap-ish to search. Four hundred is not. Use RBAC.
+- **Write descriptions for a model.** Include survey types (`memory_gb` is `"8"`, not `8`).
+- **Do not pull playbook stdout on success.** Status and a short artifact are the MCP contract you are measuring.
+- **Measure your own estate.** The repo is at [[REPO-URL]].
 
 ## References
 

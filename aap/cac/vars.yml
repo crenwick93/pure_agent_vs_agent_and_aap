@@ -1,7 +1,8 @@
 ---
 # AAP Configuration as Code — Developer Self-Service catalog
-# 20 job templates. Only "Provision Dev Sandbox" has a real playbook.
-# The rest are placeholders so the agent has a realistic selection problem.
+# 20 job templates. Five have real playbooks (provision, open port, health,
+# restart, tail logs) so a multi-request session is like-for-like. The other
+# 15 are placeholders so the agent still has a realistic selection problem.
 
 controller_credential_types: []
 
@@ -63,7 +64,8 @@ controller_templates:
   - name: "Provision Dev Sandbox"
     description: >-
       Creates a new RHEL EC2 sandbox with requested packages, SSH hardening,
-      and CMDB registration. Requires: team, memory_gb, packages, ttl_days.
+      and CMDB registration. Requires: team, memory_gb (string "4"|"8"|"16"|"32",
+      not an integer), packages, ttl_days.
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
@@ -473,7 +475,7 @@ controller_templates:
           type: "text"
           required: true
 
-  # 15. Open Firewall Port
+  # 15. Open Firewall Port (REAL PLAYBOOK)
   - name: "Open Firewall Port"
     description: >-
       Adds an inbound security group rule on a sandbox for a specified port
@@ -481,7 +483,7 @@ controller_templates:
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
-    playbook: "playbooks/placeholder.yml"
+    playbook: "playbooks/open-firewall-port.yml"
     inventory: "Developer Sandboxes"
     ask_variables_on_launch: true
     credentials:
@@ -504,7 +506,7 @@ controller_templates:
           type: "text"
           required: true
 
-  # 16. Tail App Logs
+  # 16. Tail App Logs (REAL PLAYBOOK)
   - name: "Tail App Logs"
     description: >-
       Returns the last N lines of a log file or journald unit from a sandbox.
@@ -512,11 +514,12 @@ controller_templates:
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
-    playbook: "playbooks/placeholder.yml"
+    playbook: "playbooks/tail-app-logs.yml"
     inventory: "Developer Sandboxes"
     ask_variables_on_launch: true
     credentials:
       - "Benchmark SSH Key"
+      - "AWS Benchmark"
     survey_enabled: true
     survey_spec:
       name: "Tail logs survey"
@@ -534,10 +537,10 @@ controller_templates:
         - question_name: "Lines"
           variable: "line_count"
           type: "integer"
-          default: 100
+          default: 50
           required: false
 
-  # 17. Restart App Services
+  # 17. Restart App Services (REAL PLAYBOOK)
   - name: "Restart App Services"
     description: >-
       Restarts systemd services on a sandbox and waits for active state.
@@ -545,11 +548,12 @@ controller_templates:
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
-    playbook: "playbooks/placeholder.yml"
+    playbook: "playbooks/restart-app-services.yml"
     inventory: "Developer Sandboxes"
     ask_variables_on_launch: true
     credentials:
       - "Benchmark SSH Key"
+      - "AWS Benchmark"
     survey_enabled: true
     survey_spec:
       name: "Restart services survey"
@@ -565,7 +569,7 @@ controller_templates:
           default: "postgresql"
           required: true
 
-  # 18. Check Sandbox Health
+  # 18. Check Sandbox Health (REAL PLAYBOOK)
   - name: "Check Sandbox Health"
     description: >-
       Runs a health check on a sandbox: SSH, disk, memory, CPU, services.
@@ -573,11 +577,12 @@ controller_templates:
     organization: "Default"
     job_type: "run"
     project: "Developer Self-Service Playbooks"
-    playbook: "playbooks/placeholder.yml"
+    playbook: "playbooks/check-sandbox-health.yml"
     inventory: "Developer Sandboxes"
     ask_variables_on_launch: true
     credentials:
       - "Benchmark SSH Key"
+      - "AWS Benchmark"
     survey_enabled: true
     survey_spec:
       name: "Health check survey"
