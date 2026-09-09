@@ -133,7 +133,10 @@
       ansible.builtin.command:
         cmd: >-
           ssh {{ ssh_opts }} ec2-user@{{ instance_ip }}
-          "sudo postgresql-setup --initdb && sudo systemctl enable --now postgresql"
+          "sudo /usr/bin/postgresql-setup --initdb 2>/dev/null ||
+           sudo postgresql-setup --initdb 2>/dev/null ||
+           sudo /usr/pgsql-*/bin/postgresql-*-setup initdb;
+           sudo systemctl enable --now postgresql"
       when: "'postgresql' in _packages"
       register: pg
       failed_when: pg.rc != 0 and 'already initialized' not in pg.stderr
