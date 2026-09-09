@@ -109,15 +109,33 @@ This is not a quirk of this particular task. It is a property of the architectur
 
 **Governance.** The shell agent can do anything the AWS credentials allow. The AAP agent can only do what the templates expose. That is a security argument, not a cost one, but it is worth noting that the cheaper path is also the more governed one.
 
+## The wider evidence
+
+This is one test in one lab, but the pattern it shows is not isolated. A growing body of industry evidence says the same thing: most of what enterprises are calling AI use cases are automation problems, and treating them as AI problems is burning budget.
+
+**Leaders are collecting hundreds of use cases — and most do not need an agent.** Cutter's CEO Insights 2025 found that enterprise engineering organisations have "hundreds of AI use cases in active development at any given time," but the gap between development and production is enormous. Most are stuck in what Cutter calls a proof-of-concept trap: a pilot succeeds in isolation, the investment splits across more pilots, and nothing crosses the production threshold [1]. An analysis of production AI deployments estimates that roughly 90 percent of them do not require dynamic agent orchestration — they are classification, extraction, summarisation, or API-call tasks that are fundamentally workflow problems dressed in agent clothing [2].
+
+**Anthropic's own usage data confirms it.** The Anthropic Economic Index, based on a privacy-preserving analysis of one million API transcripts, found that 97 percent of tasks represented in enterprise API traffic show automation-dominant patterns. Seventy-seven percent of enterprise API transcripts were classified as automation rather than augmentation. The dominant use cases are routine back-office workflows: email management, document processing, scheduling, and code generation [3][4].
+
+**The cost difference is not marginal.** For structured, high-volume tasks, deterministic automation runs at roughly $0.001–$0.005 per transaction. An AI agent performing the same work costs $0.02–$0.10 per transaction — ten to twenty times more. Gartner estimates that RPA delivers 30–200 percent ROI in the first year for structured, rule-based processes, a benchmark AI agents rarely match on pure repetition tasks because of their higher inference costs [5][6][7]. The premium buys reasoning. If the task does not need reasoning, it buys nothing.
+
+**The budget is growing, but the ROI is not keeping up.** Writer's 2026 Enterprise AI Adoption survey of over 1,600 employees and executives found that 79 percent of organisations face challenges adopting AI — a double-digit increase from 2025 — and 59 percent invest over one million dollars annually in AI technology. Yet only 29 percent report significant organisational ROI. Fifty-four percent of C-suite executives admit that adopting AI is tearing their company apart [8].
+
+**Gartner warns that over 40 percent of agentic AI projects will be cancelled by end of 2027**, typically because teams underestimate the cost, the oversight required, or both. The guidance is explicit: many enterprise tasks do not require reasoning, and deterministic automation is cheaper, safer, faster, easier to audit, and more predictable for those tasks [9].
+
+**When organisations audit properly, the majority of recoverable value comes from process change, not AI.** A seven-day AI diagnostic at an Irish distributor identified €560,000 in recoverable value. The majority required workflow redesign using existing tools — not AI. Where AI was recommended, it was for specific, well-defined tasks only after the underlying process was stable. The workflow drift alone, fixable without AI, was worth €180,000 per year [10].
+
+The context window test in this article gives you the mechanism. These figures give you the scale. Redirecting the automation-shaped use cases to actual automation — and reserving agent reasoning for the work that genuinely needs it — is not just an architectural preference. It is the difference between a programme that compounds and one that stalls.
+
 ## What this means for applied AI
 
-There is a temptation to think of automation platforms and AI agents as alternatives — that the agent replaces the automation. This test shows the opposite. The automation is what makes the agent viable.
+There is a temptation to think of automation platforms and AI agents as alternatives — that the agent replaces the automation. This test shows the opposite, and the industry data confirms it: the automation is what makes the agent viable, and most of the use cases landing on leaders' desks are automation problems to begin with.
 
-Without it, the agent fills its context window with command output, reinvents processes that already exist, and produces results that vary with whatever the model decides at the time. It works, but it is expensive, ungoverned, and fragile. It does not scale past one-off tasks.
+Without automation behind it, the agent fills its context window with command output, reinvents processes that already exist, and produces results that vary with whatever the model decides at the time. It works, but it is expensive, ungoverned, and fragile. It does not scale past one-off tasks. Multiply that by the hundreds of use cases an enterprise is trying to ship, and you have a programme that burns budget at ten to twenty times the rate it needs to.
 
 With automation behind it, the agent becomes an interface layer. It takes a request in natural language, maps it to the right piece of tested automation, and delegates. The context window stays small. The process is repeatable. The credentials never leave the platform. The audit trail is the job log, not a chat transcript.
 
-If you are building AI into operations — whether that is developer self-service, incident response, compliance, or anything else that touches infrastructure — the question is not whether to use an agent or automation. It is how quickly you connect the two. The agent without automation is a demo. The agent with automation is a product.
+If you are building AI into operations — whether that is developer self-service, incident response, compliance, or anything else that touches infrastructure — the question is not whether to use an agent or automation. It is how quickly you connect the two. The agent without automation is a demo. The agent with automation is a product. And the fastest way to show ROI on your AI investment may be to redirect the automation-shaped use cases to the automation platform you already own.
 
 ## Practical advice
 
@@ -126,3 +144,25 @@ If you are building AI into operations — whether that is developer self-servic
 - **Write descriptions for a model, not a person.** The agent picks from the description and the survey variables. "Builds a sandbox" tells it nothing about when to pick this over the four adjacent templates. Say what the template does, when to choose it, what it will not do, and what it needs.
 - **Route short and novel tasks to reasoning.** Not everything belongs in a template. The crossover point in this test was roughly [[CROSSOVER]] turns. Below that, the agent working alone is cheaper.
 - **Measure your own estate.** The repo is at [[REPO-URL]]. Point it at your controller and see where your numbers land.
+
+## References
+
+[1] Axccelerate, "Why Enterprise AI Stalls: What the 13% Do Differently," citing Cutter Consortium CEO Insights 2025. https://axccelerate.com/blog/why-enterprise-ai-stalls-what-the-ready-do-differently
+
+[2] M. Nasternak, "Agent Is Not What You Need," 2025. https://michalnasternak.medium.com/agent-is-not-what-you-need-1c48e37d9b22
+
+[3] Anthropic, "Anthropic Economic Index report: Economic primitives," January 2026. https://www.anthropic.com/research/anthropic-economic-index-january-2026-report
+
+[4] Anthropic, "Anthropic Economic Index report: Uneven geographic and enterprise AI adoption," arXiv:2511.15080, 2025. https://doi.org/10.48550/arxiv.2511.15080
+
+[5] "AI Agents vs RPA: The Definitive Enterprise Decision Guide 2026." https://vitaloralife.com/ai-agents-vs-rpa/
+
+[6] "AI Agents vs Automation: What Handles Complex Tasks," Zero In Daily. https://zeroindaily.com/ai-agents-vs-traditional-automation-complex-tasks/
+
+[7] "AI Agents vs RPA: Which Should You Choose?" PUNKU.AI. https://www.punku.ai/blog/ai-agents-vs-rpa
+
+[8] Writer, "Enterprise AI adoption in 2026: Why 79% face challenges despite high investment." https://writer.com/blog/enterprise-ai-adoption-2026/
+
+[9] R. Singh, "The New Enterprise AI Operating Model," citing Gartner predictions on agentic AI project cancellations. https://www.raktimsingh.com/autonomy-allocation-enterprise-ai/
+
+[10] Acuity AI, "How a Seven-Day AI Diagnostic Recovered €560K for an Irish Distributor." https://acuityai.co/blog/seven-day-ai-diagnostic-recovered-560k

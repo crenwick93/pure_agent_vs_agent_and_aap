@@ -152,6 +152,7 @@
 
   vars:
     ssh_args: "-o StrictHostKeyChecking=no -o ConnectTimeout=10"
+    cmdb_path: "{{ lookup('env', 'CMDB_PATH') | default('/tmp/cmdb.json', true) }}"
 
   tasks:
     - name: Map package names to RHEL 9 names
